@@ -1,13 +1,27 @@
 import React, { useEffect, useMemo, useRef, useState } from "react";
 import { Thermometer, Volume2, Lightbulb, Flame, Mic } from "lucide-react";
+import { motion } from "framer-motion";
 import { normalizeVehicle, defaultVehicle } from "./state/defaults";
 import SliderRow from "./components/SliderRow.jsx";
 import Sheet from "./components/Sheet.jsx";
 import VoiceModal from "./components/VoiceModal.jsx";
 
-const ORANGE = "#ff7a00";
-const BG =
-  "bg-[linear-gradient(135deg,_#0b0d10_0%,_#101318_40%,_#181c23_100%)]";
+// Dava Brand Colors
+const COLORS = {
+  primary: "#192B37",
+  accent: "#3DD17B", 
+  secondary: "#F99C11",
+  gray: "#47555F",
+  lightBg: "#E8EAEB",
+  neutralBg: "#D1D5D7",
+  textSecondary: "#A3AAAF",
+  cardAccents: {
+    climate: "#3DD17B",
+    music: "#F99C11", 
+    lighting: "#5899C4",
+    seats: "#FF5641"
+  }
+};
 
 /* ---------------------------------------
    Local storage helper
@@ -54,7 +68,7 @@ function tweenNumber({ from, to, ms = 500, step, done }) {
 --------------------------------------- */
 export default function App() {
   // vehicle state
-  const [vehicle, setVehicle] = useLocal("bb.vehicle", defaultVehicle);
+  const [vehicle, setVehicle] = useLocal("dava.vehicle", defaultVehicle);
   const v = useMemo(() => normalizeVehicle(vehicle), [vehicle]);
 
   // clock
@@ -89,7 +103,7 @@ export default function App() {
     switch (action) {
       /* ----- CLIMATE ----- */
       case "climate_turn_on": {
-        openSheet("climate", "Climate");
+        openSheet("climate", "Climate Control");
         setVehicle((s) => ({
           ...s,
           climate: { ...normalizeVehicle(s).climate, on: true },
@@ -97,7 +111,7 @@ export default function App() {
         break;
       }
       case "climate_turn_off": {
-        openSheet("climate", "Climate");
+        openSheet("climate", "Climate Control");
         setVehicle((s) => ({
           ...s,
           climate: { ...normalizeVehicle(s).climate, on: false },
@@ -106,7 +120,7 @@ export default function App() {
       }
       case "climate_set_temperature": {
         const to = clamp(toInt(rawValue), 16, 30);
-        openSheet("climate", "Climate");
+        openSheet("climate", "Climate Control");
         const from = v.climate.temp;
         startTween({
           from,
@@ -125,7 +139,7 @@ export default function App() {
         break;
       }
       case "climate_increase": {
-        openSheet("climate", "Climate");
+        openSheet("climate", "Climate Control");
         const to = clamp(v.climate.temp + 1, 16, 30);
         startTween({
           from: v.climate.temp,
@@ -144,7 +158,7 @@ export default function App() {
         break;
       }
       case "climate_decrease": {
-        openSheet("climate", "Climate");
+        openSheet("climate", "Climate Control");
         const to = clamp(v.climate.temp - 1, 16, 30);
         startTween({
           from: v.climate.temp,
@@ -166,7 +180,7 @@ export default function App() {
       /* ----- MUSIC / INFOTAINMENT (volume only) ----- */
       case "infotainment_set_volume": {
         const to = clamp(toInt(rawValue), 0, 100);
-        openSheet("music", "Music");
+        openSheet("music", "Entertainment System");
         startTween({
           from: v.media.volume,
           to,
@@ -185,7 +199,7 @@ export default function App() {
       }
       case "infotainment_volume_up": {
         const to = clamp(v.media.volume + 5, 0, 100);
-        openSheet("music", "Music");
+        openSheet("music", "Entertainment System");
         startTween({
           from: v.media.volume,
           to,
@@ -204,7 +218,7 @@ export default function App() {
       }
       case "infotainment_volume_down": {
         const to = clamp(v.media.volume - 5, 0, 100);
-        openSheet("music", "Music");
+        openSheet("music", "Entertainment System");
         startTween({
           from: v.media.volume,
           to,
@@ -224,7 +238,7 @@ export default function App() {
 
       /* ----- LIGHTS ----- */
       case "lights_turn_on": {
-        openSheet("lighting", "Interior Lights");
+        openSheet("lighting", "Interior Lighting");
         const to = Math.max(20, v.lights.brightness || 20);
         startTween({
           from: v.lights.brightness,
@@ -243,7 +257,7 @@ export default function App() {
         break;
       }
       case "lights_turn_off": {
-        openSheet("lighting", "Interior Lights");
+        openSheet("lighting", "Interior Lighting");
         startTween({
           from: v.lights.brightness,
           to: 0,
@@ -261,7 +275,7 @@ export default function App() {
         break;
       }
       case "lights_dim": {
-        openSheet("lighting", "Interior Lights");
+        openSheet("lighting", "Interior Lighting");
         const to = Math.max(0, v.lights.brightness - 10);
         startTween({
           from: v.lights.brightness,
@@ -280,7 +294,7 @@ export default function App() {
         break;
       }
       case "lights_brighten": {
-        openSheet("lighting", "Interior Lights");
+        openSheet("lighting", "Interior Lighting");
         const to = Math.min(100, v.lights.brightness + 10);
         startTween({
           from: v.lights.brightness,
@@ -301,14 +315,14 @@ export default function App() {
 
       /* ----- SEATS (global) ----- */
       case "seats_heat_on":
-        openSheet("seats", "Seats");
+        openSheet("seats", "Seat Controls");
         setVehicle((s) => ({
           ...s,
           seats: { ...normalizeVehicle(s).seats, heatOn: true },
         }));
         break;
       case "seats_heat_off":
-        openSheet("seats", "Seats");
+        openSheet("seats", "Seat Controls");
         setVehicle((s) => ({
           ...s,
           seats: { ...normalizeVehicle(s).seats, heatOn: false },
@@ -316,7 +330,7 @@ export default function App() {
         break;
       case "seats_adjust": {
         const to = Math.min(5, Math.max(1, Math.round(+rawValue || 0)));
-        openSheet("seats", "Seats");
+        openSheet("seats", "Seat Controls");
         startTween({
           from: v.seats.position,
           to,
@@ -348,300 +362,389 @@ export default function App() {
   };
 
   /* ---------------------------------------
-     Card
+     Modern Card Component
   --------------------------------------- */
-  const Card = ({ title, icon: Icon, active, children, onOpen }) => (
-    <button
-      onClick={onOpen}
-      className="text-left rounded-3xl border p-7 transition
-      border-white/10 bg-[rgba(37,36,36,0.52)] hover:bg-white/[0.12]
-      w-[640px] min-h-[170px] focus:outline-none focus:ring-2 focus:ring-[var(--brand)]"
+  const ModernCard = ({ title, icon: Icon, active, children, onClick, accentColor, description, value, unit }) => (
+    <motion.button
+      onClick={onClick}
+      className="group relative text-left w-full h-64 rounded-3xl border border-gray-200 bg-white/80 backdrop-blur-sm p-8 shadow-lg hover:shadow-2xl transition-all duration-500 focus:outline-none focus:ring-2 focus:ring-offset-2 overflow-hidden"
+      style={{ '--focus-color': accentColor }}
+      whileHover={{ scale: 1.02, y: -4 }}
+      whileTap={{ scale: 0.98 }}
     >
-      <div className="flex items-center gap-3">
-        <div
-          className={`grid place-items-center w-11 h-11 rounded-xl ${
-            active ? "bg-[var(--brand)] text-black" : "bg-white/10 text-white"
-          }`}
+      {/* Background gradient overlay */}
+      <div 
+        className="absolute inset-0 opacity-0 group-hover:opacity-5 transition-opacity duration-500"
+        style={{ 
+          background: `linear-gradient(135deg, ${accentColor}20 0%, ${accentColor}10 100%)`
+        }}
+      />
+      
+      {/* Header */}
+      <div className="flex items-start justify-between mb-6 relative z-10">
+        <div 
+          className="w-16 h-16 rounded-2xl flex items-center justify-center shadow-sm transition-all duration-500 group-hover:scale-110"
+          style={{ 
+            backgroundColor: active ? accentColor : `${accentColor}15`,
+            color: active ? "white" : accentColor
+          }}
         >
-          <Icon size={20} />
+          <Icon size={28} />
         </div>
-        <div
-          className={`font-semibold tracking-wide ${
-            active ? "text-[var(--brand)]" : "text-white"
-          }`}
+        
+        <div 
+          className="text-xs px-3 py-1.5 rounded-full font-semibold tracking-wide transition-all duration-500"
+          style={{ 
+            backgroundColor: active ? `${accentColor}20` : COLORS.lightBg,
+            color: active ? accentColor : COLORS.gray
+          }}
         >
-          {title}
+          {active ? "ACTIVE" : "STANDBY"}
         </div>
       </div>
-      <div className="text-white/85 text-lg mt-4">{children}</div>
-    </button>
+
+      {/* Content */}
+      <div className="relative z-10">
+        <h3 
+          className="text-2xl font-bold mb-2 transition-colors duration-500 group-hover:scale-105 origin-left"
+          style={{ color: active ? accentColor : COLORS.primary }}
+        >
+          {title}
+        </h3>
+        
+        <p className="text-sm mb-4" style={{ color: COLORS.textSecondary }}>
+          {description}
+        </p>
+        
+        {/* Value display */}
+        <div className="flex items-end gap-2">
+          <span 
+            className="text-3xl font-bold transition-all duration-500"
+            style={{ color: active ? accentColor : COLORS.primary }}
+          >
+            {value}
+          </span>
+          <span 
+            className="text-lg font-medium mb-1"
+            style={{ color: COLORS.textSecondary }}
+          >
+            {unit}
+          </span>
+        </div>
+        
+        <div className="text-sm mt-2" style={{ color: COLORS.gray }}>
+          {children}
+        </div>
+      </div>
+
+      {/* Subtle animation line */}
+      <div 
+        className="absolute bottom-0 left-0 h-1 transition-all duration-500"
+        style={{ 
+          width: active ? "100%" : "0%",
+          backgroundColor: accentColor
+        }}
+      />
+    </motion.button>
   );
 
   /* ---------------------------------------
      Render
   --------------------------------------- */
   return (
-    <div
-      className={`${BG} min-h-screen w-full`}
-      style={{ ["--brand"]: ORANGE }}
-    >
-      {/* main card (fullscreen with small margin) */}
-      <div className="relative mx-auto my-[2.5vh] w-[95vw] h-[95vh] max-w-[1680px] rounded-[28px] border border-white/10 overflow-hidden shadow-[0_0_60px_rgba(0,0,0,0.35)]">
-        <div className="absolute inset-0 bg-black/20" />
-        <div className="relative h-full w-full p-8 overflow-hidden">
-          {/* clock */}
-          <div className="absolute left-1/2 -translate-x-1/2 top-6 text-white/90 text-4xl font-semibold">
-            {hh}:{mm}
-          </div>
-
-          {/* content scroll only inside the card */}
-          <div className="h-full pt-20 pb-24 overflow-auto">
-            <div className="flex flex-wrap gap-10 justify-center">
-              {/* Climate */}
-              <Card
-                title="Climate"
-                icon={Thermometer}
-                active={v.climate.on}
-                onOpen={() => openSheet("climate", "Climate")}
-              >
-                <div className="flex items-center gap-3">
-                  <span
-                    className={v.climate.on ? "text-white" : "text-white/60"}
-                  >
-                    {v.climate.on ? "On" : "Off"}
-                  </span>
-                  <span>•</span>
-                  <span>{v.climate.temp}°C</span>
-                </div>
-              </Card>
-
-              {/* Music (volume only) */}
-              <Card
-                title="Music"
-                icon={Volume2}
-                active={v.media.on}
-                onOpen={() => openSheet("music", "Music")}
-              >
-                <div className="flex items-center gap-3">
-                  <span className={v.media.on ? "text-white" : "text-white/60"}>
-                    {v.media.on ? "On" : "Off"}
-                  </span>
-                  <span>•</span>
-                  <span>Volume {v.media.volume}%</span>
-                </div>
-              </Card>
-
-              {/* Lighting */}
-              <Card
-                title="Lighting"
-                icon={Lightbulb}
-                active={v.lights.on}
-                onOpen={() => openSheet("lighting", "Interior Lights")}
-              >
-                <div className="flex items-center gap-3">
-                  <span
-                    className={v.lights.on ? "text-white" : "text-white/60"}
-                  >
-                    {v.lights.on ? "On" : "Off"}
-                  </span>
-                  <span>•</span>
-                  <span>Brightness {v.lights.brightness}%</span>
-                </div>
-              </Card>
-
-              {/* Seats (global) */}
-              <Card
-                title="Seats"
-                icon={Flame}
-                active={v.seats.heatOn}
-                onOpen={() => openSheet("seats", "Seats")}
-              >
-                <div className="flex items-center gap-3">
-                  <span
-                    className={v.seats.heatOn ? "text-white" : "text-white/60"}
-                  >
-                    {v.seats.heatOn ? "Heat On" : "Heat Off"}
-                  </span>
-                  <span>•</span>
-                  <span>Position {v.seats.position}</span>
-                </div>
-              </Card>
-            </div>
-          </div>
-
-          {/* AI FAB (inside the card, centered on bottom) */}
-          <button
-            onClick={() => setAiOpen(true)}
-            className="absolute bottom-6 left-1/2 -translate-x-1/2 z-[65] w-16 h-16 rounded-full grid place-items-center bg-[var(--brand)] text-black shadow-lg hover:scale-[1.03] transition"
-            title="Assistant"
-            aria-label="Assistant"
+    <div className="min-h-screen relative" style={{ backgroundColor: COLORS.lightBg }}>
+      <div className="max-w-6xl mx-auto p-6 pb-32">
+        {/* Header */}
+        <div className="text-center mb-12">
+          <motion.div 
+            className="text-6xl font-black mb-3 tracking-tight"
+            style={{ color: COLORS.primary }}
+            initial={{ opacity: 0, y: -30 }}
+            animate={{ opacity: 1, y: 0 }}
+            transition={{ duration: 0.8, ease: "easeOut" }}
           >
-            <Mic size={22} />
-          </button>
+            {hh}:{mm}
+          </motion.div>
+          <motion.div 
+            className="text-xl font-medium"
+            style={{ color: COLORS.gray }}
+            initial={{ opacity: 0 }}
+            animate={{ opacity: 1 }}
+            transition={{ duration: 0.8, delay: 0.2 }}
+          >
+            Your Vehicle AI Assistant
+          </motion.div>
+        </div>
 
-          {/* SHEET overlay */}
-          <Sheet open={sheet.open} title={sheet.title} onClose={closeSheet}>
-            {sheet.kind === "climate" && (
-              <div key="climate">
-                <div className="mb-4">
-                  <button
-                    onClick={() =>
-                      setVehicle((s) => {
-                        const c = normalizeVehicle(s).climate;
-                        return { ...s, climate: { ...c, on: !c.on } };
-                      })
-                    }
-                    className="px-4 py-2 rounded-xl bg-white/10 border border-white/15 text-white/90"
-                  >
-                    {v.climate.on ? "Power Off" : "Power On"}
-                  </button>
-                </div>
-                <SliderRow
-                  label="Cabin Temperature"
-                  value={v.climate.temp}
-                  min={16}
-                  max={30}
-                  unit="°C"
-                  disabledVisual={!v.climate.on}
-                  onChange={(n) =>
-                    setVehicle((s) => ({
-                      ...s,
-                      climate: {
-                        ...normalizeVehicle(s).climate,
-                        on: true,
-                        temp: Math.round(n),
-                      },
-                    }))
-                  }
-                />
-              </div>
-            )}
+        {/* Modern Dashboard Cards - 2x2 Grid */}
+        <motion.div 
+          className="grid grid-cols-1 lg:grid-cols-2 gap-8 mb-16"
+          initial={{ opacity: 0, y: 30 }}
+          animate={{ opacity: 1, y: 0 }}
+          transition={{ duration: 0.8, delay: 0.4 }}
+        >
+          <ModernCard
+            title="Climate"
+            icon={Thermometer}
+            active={v.climate.on}
+            accentColor={COLORS.cardAccents.climate}
+            description="Cabin temperature control"
+            value={v.climate.temp}
+            unit="°C"
+            onClick={() => openSheet("climate", "Climate Control")}
+          >
+       
+          </ModernCard>
 
-            {sheet.kind === "music" && (
-              <div key="music">
-                <div className="mb-4">
-                  <button
-                    onClick={() =>
-                      setVehicle((s) => {
-                        const m = normalizeVehicle(s).media;
-                        return { ...s, media: { ...m, on: !m.on } };
-                      })
-                    }
-                    className="px-4 py-2 rounded-xl bg-white/10 border border-white/15 text-white/90"
-                  >
-                    {v.media.on ? "Power Off" : "Power On"}
-                  </button>
-                </div>
-                <SliderRow
-                  label="Volume"
-                  value={v.media.volume}
-                  min={0}
-                  max={100}
-                  unit="%"
-                  disabledVisual={!v.media.on}
-                  onChange={(n) =>
-                    setVehicle((s) => ({
-                      ...s,
-                      media: {
-                        ...normalizeVehicle(s).media,
-                        on: true,
-                        volume: Math.round(n),
-                      },
-                    }))
-                  }
-                />
-              </div>
-            )}
+          <ModernCard
+            title="Entertainment"
+            icon={Volume2}
+            active={v.media.on}
+            accentColor={COLORS.cardAccents.music}
+            description="Audio and media system"
+            value={v.media.volume}
+            unit="%"
+            onClick={() => openSheet("music", "Entertainment System")}
+          >
+     
+          </ModernCard>
 
-            {sheet.kind === "lighting" && (
-              <div key="lighting">
-                <div className="mb-4">
-                  <button
-                    onClick={() =>
-                      setVehicle((s) => {
-                        const l = normalizeVehicle(s).lights;
-                        const on = !l.on;
-                        return {
-                          ...s,
-                          lights: {
-                            ...l,
-                            on,
-                            brightness: on ? Math.max(20, l.brightness) : 0,
-                          },
-                        };
-                      })
-                    }
-                    className="px-4 py-2 rounded-xl bg-white/10 border border-white/15 text-white/90"
-                  >
-                    {v.lights.on ? "Power Off" : "Power On"}
-                  </button>
-                </div>
-                <SliderRow
-                  label="Brightness"
-                  value={v.lights.brightness}
-                  min={0}
-                  max={100}
-                  unit="%"
-                  disabledVisual={!v.lights.on}
-                  onChange={(n) =>
-                    setVehicle((s) => ({
+          <ModernCard
+            title="Lighting"
+            icon={Lightbulb}
+            active={v.lights.on}
+            accentColor={COLORS.cardAccents.lighting}
+            description="Interior lighting control"
+            value={v.lights.brightness}
+            unit="%"
+            onClick={() => openSheet("lighting", "Interior Lighting")}
+          >
+        
+          </ModernCard>
+
+          <ModernCard
+            title="Seats"
+            icon={Flame}
+            active={v.seats.heatOn}
+            accentColor={COLORS.cardAccents.seats}
+            description="Seat position and heating"
+            value={v.seats.position}
+            unit=""
+            onClick={() => openSheet("seats", "Seat Controls")}
+          >
+        
+          </ModernCard>
+        </motion.div>
+      </div>
+
+      {/* Siri-style Voice Assistant Button - Fixed at bottom */}
+      <div className="fixed bottom-8 left-1/2 transform -translate-x-1/2 z-50">
+        <motion.button
+          onClick={() => setAiOpen(true)}
+          className="relative w-20 h-20 rounded-full shadow-2xl text-white flex items-center justify-center overflow-hidden"
+          style={{ backgroundColor: COLORS.accent }}
+          whileHover={{ scale: 1.05 }}
+          whileTap={{ scale: 0.95 }}
+          initial={{ y: 100, opacity: 0 }}
+          animate={{ y: 0, opacity: 1 }}
+          transition={{ duration: 0.8, delay: 0.8, type: "spring", stiffness: 200 }}
+        >
+          {/* Pulsing ring effect */}
+          <motion.div
+            className="absolute inset-0 rounded-full border-2"
+            style={{ borderColor: COLORS.accent }}
+            animate={{ 
+              scale: [1, 1.4, 1],
+              opacity: [0.8, 0, 0.8]
+            }}
+            transition={{ 
+              duration: 2,
+              repeat: Infinity,
+              ease: "easeOut"
+            }}
+          />
+          
+          {/* Gradient overlay */}
+          <div 
+            className="absolute inset-0 rounded-full"
+            style={{
+              background: `linear-gradient(135deg, ${COLORS.accent} 0%, #2BC467 100%)`
+            }}
+          />
+          
+          <Mic size={32} className="relative z-10" />
+        </motion.button>
+      </div>
+
+      {/* SHEET overlay */}
+      <Sheet open={sheet.open} title={sheet.title} onClose={closeSheet}>
+        {sheet.kind === "climate" && (
+          <div key="climate">
+            <div className="mb-6">
+              <button
+                onClick={() =>
+                  setVehicle((s) => {
+                    const c = normalizeVehicle(s).climate;
+                    return { ...s, climate: { ...c, on: !c.on } };
+                  })
+                }
+                className="px-6 py-3 rounded-xl font-medium text-white transition-all duration-200 hover:scale-105"
+                style={{ backgroundColor: v.climate.on ? COLORS.gray : COLORS.cardAccents.climate }}
+              >
+                {v.climate.on ? "Turn Off" : "Turn On"}
+              </button>
+            </div>
+            <SliderRow
+              label="Temperature"
+              value={v.climate.temp}
+              min={16}
+              max={30}
+              unit="°C"
+              accentColor={COLORS.cardAccents.climate}
+              disabledVisual={!v.climate.on}
+              onChange={(n) =>
+                setVehicle((s) => ({
+                  ...s,
+                  climate: {
+                    ...normalizeVehicle(s).climate,
+                    on: true,
+                    temp: Math.round(n),
+                  },
+                }))
+              }
+            />
+          </div>
+        )}
+
+        {sheet.kind === "music" && (
+          <div key="music">
+            <div className="mb-6">
+              <button
+                onClick={() =>
+                  setVehicle((s) => {
+                    const m = normalizeVehicle(s).media;
+                    return { ...s, media: { ...m, on: !m.on } };
+                  })
+                }
+                className="px-6 py-3 rounded-xl font-medium text-white transition-all duration-200 hover:scale-105"
+                style={{ backgroundColor: v.media.on ? COLORS.gray : COLORS.cardAccents.music }}
+              >
+                {v.media.on ? "Turn Off" : "Turn On"}
+              </button>
+            </div>
+            <SliderRow
+              label="Volume"
+              value={v.media.volume}
+              min={0}
+              max={100}
+              unit="%"
+              accentColor={COLORS.cardAccents.music}
+              disabledVisual={!v.media.on}
+              onChange={(n) =>
+                setVehicle((s) => ({
+                  ...s,
+                  media: {
+                    ...normalizeVehicle(s).media,
+                    on: true,
+                    volume: Math.round(n),
+                  },
+                }))
+              }
+            />
+          </div>
+        )}
+
+        {sheet.kind === "lighting" && (
+          <div key="lighting">
+            <div className="mb-6">
+              <button
+                onClick={() =>
+                  setVehicle((s) => {
+                    const l = normalizeVehicle(s).lights;
+                    const on = !l.on;
+                    return {
                       ...s,
                       lights: {
-                        ...normalizeVehicle(s).lights,
-                        on: true,
-                        brightness: Math.round(n),
+                        ...l,
+                        on,
+                        brightness: on ? Math.max(20, l.brightness) : 0,
                       },
-                    }))
-                  }
-                />
-              </div>
-            )}
+                    };
+                  })
+                }
+                className="px-6 py-3 rounded-xl font-medium text-white transition-all duration-200 hover:scale-105"
+                style={{ backgroundColor: v.lights.on ? COLORS.gray : COLORS.cardAccents.lighting }}
+              >
+                {v.lights.on ? "Turn Off" : "Turn On"}
+              </button>
+            </div>
+            <SliderRow
+              label="Brightness"
+              value={v.lights.brightness}
+              min={0}
+              max={100}
+              unit="%"
+              accentColor={COLORS.cardAccents.lighting}
+              disabledVisual={!v.lights.on}
+              onChange={(n) =>
+                setVehicle((s) => ({
+                  ...s,
+                  lights: {
+                    ...normalizeVehicle(s).lights,
+                    on: true,
+                    brightness: Math.round(n),
+                  },
+                }))
+              }
+            />
+          </div>
+        )}
 
-            {sheet.kind === "seats" && (
-              <div key="seats">
-                <div className="mb-4">
-                  <button
-                    onClick={() =>
-                      setVehicle((s) => ({
-                        ...s,
-                        seats: {
-                          ...normalizeVehicle(s).seats,
-                          heatOn: !normalizeVehicle(s).seats.heatOn,
-                        },
-                      }))
-                    }
-                    className="px-4 py-2 rounded-xl bg-white/10 border border-white/15 text-white/90"
-                  >
-                    {v.seats.heatOn ? "Heat Off" : "Heat On"}
-                  </button>
-                </div>
-                <SliderRow
-                  label="Position"
-                  value={v.seats.position}
-                  min={1}
-                  max={5}
-                  onChange={(n) =>
-                    setVehicle((s) => ({
-                      ...s,
-                      seats: {
-                        ...normalizeVehicle(s).seats,
-                        position: Math.round(n),
-                      },
-                    }))
-                  }
-                />
-              </div>
-            )}
-          </Sheet>
+        {sheet.kind === "seats" && (
+          <div key="seats">
+            <div className="mb-6">
+              <button
+                onClick={() =>
+                  setVehicle((s) => ({
+                    ...s,
+                    seats: {
+                      ...normalizeVehicle(s).seats,
+                      heatOn: !normalizeVehicle(s).seats.heatOn,
+                    },
+                  }))
+                }
+                className="px-6 py-3 rounded-xl font-medium text-white transition-all duration-200 hover:scale-105"
+                style={{ backgroundColor: v.seats.heatOn ? COLORS.gray : COLORS.cardAccents.seats }}
+              >
+                {v.seats.heatOn ? "Heat Off" : "Heat On"}
+              </button>
+            </div>
+            <SliderRow
+              label="Position"
+              value={v.seats.position}
+              min={1}
+              max={5}
+              accentColor={COLORS.cardAccents.seats}
+              onChange={(n) =>
+                setVehicle((s) => ({
+                  ...s,
+                  seats: {
+                    ...normalizeVehicle(s).seats,
+                    position: Math.round(n),
+                  },
+                }))
+              }
+            />
+          </div>
+        )}
+      </Sheet>
 
-          {/* Assistant — hands off action; we close first, then animate */}
-          <VoiceModal
-            open={aiOpen}
-            onClose={() => setAiOpen(false)}
-            dispatchAction={dispatchAfterAiClose}
-          />
-        </div>
-      </div>
+      {/* Siri-style Voice Modal */}
+      <VoiceModal
+        open={aiOpen}
+        onClose={() => setAiOpen(false)}
+        dispatchAction={dispatchAfterAiClose}
+      />
     </div>
   );
 }

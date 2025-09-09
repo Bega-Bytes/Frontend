@@ -1,9 +1,8 @@
 import React from "react";
 
 /**
- * Tall, finger-friendly slider.
- * Fill: white → orange up to knob, dark after knob (reversed).
- * `disabledVisual` only dims; still draggable (auto-powers on at handlers).
+ * Enhanced slider component with Dava branding
+ * Features smooth animations, better accessibility, and professional styling
  */
 export default function SliderRow({
   label,
@@ -14,65 +13,190 @@ export default function SliderRow({
   unit = "",
   onChange,
   disabledVisual = false,
+  accentColor = "#3DD17B", // Default Dava accent color
 }) {
   const pct = Math.round(((value - min) / (max - min)) * 100);
 
-  const handle = (e) => onChange?.(Number(e.target.value));
+  const handle = (e) => {
+    const newValue = Number(e.target.value);
+    onChange?.(newValue);
+  };
+
+  // Generate unique ID for accessibility
+  const sliderId = `slider-${label.toLowerCase().replace(/\s+/g, '-')}-${Math.random().toString(36).substr(2, 9)}`;
 
   return (
-    <div className={`mb-5 ${disabledVisual ? "opacity-45" : ""}`}>
-      <div className="flex items-center justify-between mb-2">
-        <div className="text-white/80">{label}</div>
-        <div className="px-3 py-1 rounded-md text-sm border border-white/10 bg-white/5 text-white/90">
-          {value}
-          {unit}
+    <div className={`mb-6 transition-opacity duration-300 ${disabledVisual ? "opacity-50" : ""}`}>
+      {/* Label and Value Display */}
+      <div className="flex items-center justify-between mb-4">
+        <label 
+          htmlFor={sliderId}
+          className="text-base font-semibold"
+          style={{ color: "#192B37" }}
+        >
+          {label}
+        </label>
+        <div 
+          className="px-4 py-2 rounded-lg text-sm font-bold shadow-sm border transition-all duration-200"
+          style={{ 
+            backgroundColor: disabledVisual ? "#D1D5D7" : "#E8EAEB",
+            color: disabledVisual ? "#A3AAAF" : "#192B37",
+            borderColor: "rgba(25, 43, 55, 0.1)"
+          }}
+        >
+          {value}{unit}
         </div>
       </div>
 
-      <div className="h-16 grid items-center">
+      {/* Slider Container */}
+      <div className="relative h-16 flex items-center group">
+        {/* Track Background */}
+        <div 
+          className="absolute inset-x-0 h-3 rounded-full shadow-inner"
+          style={{ 
+            backgroundColor: "#D1D5D7",
+            top: "50%",
+            transform: "translateY(-50%)"
+          }}
+        />
+        
+        {/* Active Track */}
+        <div 
+          className="absolute h-3 rounded-full shadow-sm transition-all duration-300 ease-out"
+          style={{ 
+            backgroundColor: disabledVisual ? "#A3AAAF" : accentColor,
+            width: `${pct}%`,
+            top: "50%",
+            transform: "translateY(-50%)",
+            boxShadow: disabledVisual ? "none" : `0 2px 8px ${accentColor}40`
+          }}
+        />
+
+        {/* Slider Input */}
         <input
+          id={sliderId}
           type="range"
           min={min}
           max={max}
           step={step}
           value={value}
-          onInput={handle} // updates while dragging
-          onChange={handle} // Safari/edge cases
-          className="w-full appearance-none bg-transparent slider-filled"
+          onInput={handle}
+          onChange={handle}
+          disabled={disabledVisual}
+          className="relative w-full h-3 bg-transparent appearance-none cursor-pointer focus:outline-none disabled:cursor-not-allowed z-10"
+          style={{
+            background: "transparent",
+          }}
+          aria-label={`${label}: ${value}${unit}`}
+          aria-valuemin={min}
+          aria-valuemax={max}
+          aria-valuenow={value}
         />
+
+        {/* Progress Indicator */}
+        <div 
+          className="absolute text-xs font-medium transition-all duration-300 pointer-events-none"
+          style={{ 
+            left: `calc(${pct}% - 20px)`,
+            top: "-32px",
+            color: disabledVisual ? "#A3AAAF" : accentColor,
+            opacity: disabledVisual ? 0.5 : 0,
+            transform: "translateX(50%)"
+          }}
+        >
+          {value}{unit}
+        </div>
       </div>
 
-      <style>{`
-        .slider-filled::-webkit-slider-runnable-track{
-          height:16px; border-radius:9999px;
-          background:
-            linear-gradient(
-              90deg,
-              rgba(255,255,255,0.95) 0%,
-              var(--brand) ${pct}%,
-              #2a2f38 ${pct}%,
-              #2a2f38 100%
-            );
+      {/* Value Range Display */}
+      <div className="flex justify-between mt-2 text-xs font-medium" style={{ color: "#A3AAAF" }}>
+        <span>{min}{unit}</span>
+        <span>{max}{unit}</span>
+      </div>
+
+      <style jsx>{`
+        input[type="range"] {
+          -webkit-appearance: none;
+          -moz-appearance: none;
+          appearance: none;
         }
-        .slider-filled::-moz-range-track{
-          height:16px; border-radius:9999px;
-          background:
-            linear-gradient(
-              90deg,
-              rgba(255,255,255,0.95) 0%,
-              var(--brand) ${pct}%,
-              #2a2f38 ${pct}%,
-              #2a2f38 100%
-            );
+        
+        input[type="range"]::-webkit-slider-thumb {
+          -webkit-appearance: none;
+          appearance: none;
+          width: 24px;
+          height: 24px;
+          border-radius: 50%;
+          background: white;
+          border: 3px solid ${disabledVisual ? "#A3AAAF" : accentColor};
+          cursor: ${disabledVisual ? "not-allowed" : "pointer"};
+          box-shadow: 0 4px 12px rgba(0, 0, 0, 0.15);
+          transition: all 0.2s ease;
+          position: relative;
+          z-index: 20;
         }
-        .slider-filled::-webkit-slider-thumb{
-          -webkit-appearance:none; width:32px; height:32px;
-          border-radius:9999px; background:#fff; margin-top:-8px;
-          box-shadow:0 0 0 6px rgba(255,122,0,.22);
+        
+        input[type="range"]::-webkit-slider-thumb:hover:not(:disabled) {
+          transform: scale(1.15);
+          box-shadow: 0 6px 20px rgba(0, 0, 0, 0.25);
+          border-width: 4px;
         }
-        .slider-filled::-moz-range-thumb{
-          width:32px; height:32px; border:none; border-radius:9999px; background:#fff;
-          box-shadow:0 0 0 6px rgba(255,122,0,.22);
+        
+        input[type="range"]::-webkit-slider-thumb:active:not(:disabled) {
+          transform: scale(1.1);
+          box-shadow: 0 4px 16px rgba(0, 0, 0, 0.3);
+        }
+        
+        input[type="range"]:focus::-webkit-slider-thumb {
+          box-shadow: 0 0 0 4px ${accentColor}40, 0 4px 12px rgba(0, 0, 0, 0.15);
+        }
+        
+        input[type="range"]::-moz-range-thumb {
+          width: 24px;
+          height: 24px;
+          border-radius: 50%;
+          background: white;
+          border: 3px solid ${disabledVisual ? "#A3AAAF" : accentColor};
+          cursor: ${disabledVisual ? "not-allowed" : "pointer"};
+          box-shadow: 0 4px 12px rgba(0, 0, 0, 0.15);
+          transition: all 0.2s ease;
+          -moz-appearance: none;
+        }
+        
+        input[type="range"]::-moz-range-thumb:hover:not(:disabled) {
+          transform: scale(1.15);
+          box-shadow: 0 6px 20px rgba(0, 0, 0, 0.25);
+        }
+        
+        input[type="range"]::-moz-range-track {
+          height: 12px;
+          border-radius: 6px;
+          background: transparent;
+          border: none;
+        }
+        
+        input[type="range"]::-ms-thumb {
+          width: 24px;
+          height: 24px;
+          border-radius: 50%;
+          background: white;
+          border: 3px solid ${disabledVisual ? "#A3AAAF" : accentColor};
+          cursor: ${disabledVisual ? "not-allowed" : "pointer"};
+          box-shadow: 0 4px 12px rgba(0, 0, 0, 0.15);
+        }
+        
+        input[type="range"]::-ms-track {
+          height: 12px;
+          border-radius: 6px;
+          background: transparent;
+          border: none;
+          color: transparent;
+        }
+        
+        /* Show progress indicator on hover/focus */
+        .group:hover .progress-indicator,
+        input[type="range"]:focus + .progress-indicator {
+          opacity: 1 !important;
         }
       `}</style>
     </div>
