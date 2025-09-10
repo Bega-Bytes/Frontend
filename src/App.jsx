@@ -188,7 +188,7 @@ const PresetPrompt = React.memo(function PresetPrompt({
       {/* Bottom sheet card */}
       <div className="relative flex flex-col justify-end h-full w-full">
         <div
-          className="w-full max-w-3xl mx-auto h-[60%] rounded-t-3xl overflow-hidden border shadow-2xl"
+          className="w-full max-w-3xl mx-auto h-[50%] rounded-t-3xl overflow-hidden border shadow-2xl"
           style={{
             background:
               "linear-gradient(180deg, rgba(255,255,255,0.9) 0%, rgba(245,247,248,0.85) 100%)",
@@ -341,15 +341,6 @@ const PresetPrompt = React.memo(function PresetPrompt({
               </div>
             </div>
           </div>
-
-          {/* footer fade */}
-          <div
-            className="h-6 pointer-events-none"
-            style={{
-              background:
-                "linear-gradient(to top, rgba(255,255,255,0.9), rgba(255,255,255,0))",
-            }}
-          />
         </div>
       </div>
     </div>
