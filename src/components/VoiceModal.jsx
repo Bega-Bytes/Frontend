@@ -18,7 +18,12 @@ const CHAT_MAX_WIDTH_PX = 560;
 const SHEET_MAX_WIDTH = "max-w-3xl";
 const SHEET_HEIGHT = "h-[60%]";
 
-export default function VoiceModal({ open, onClose, dispatchAction, onNavigate }) {
+export default function VoiceModal({
+  open,
+  onClose,
+  dispatchAction,
+  onNavigate,
+}) {
   const [phase, setPhase] = useState("idle");
   const [input, setInput] = useState("");
   const [sending, setSending] = useState(false);
@@ -64,57 +69,130 @@ export default function VoiceModal({ open, onClose, dispatchAction, onNavigate }
     const volumeMatch = s.match(/(?:set\s+)?volume\s*(?:to\s+)?(\d+)/);
     if (volumeMatch) {
       const vol = Math.min(100, Math.max(0, parseInt(volumeMatch[1])));
-      return { action: "media_set_volume", value: vol, response: `Setting volume to ${vol}%` };
+      return {
+        action: "media_set_volume",
+        value: vol,
+        response: `Setting volume to ${vol}%`,
+      };
     }
     if (s.includes("volume up") || s.includes("turn up")) {
-      return { action: "media_volume_up", value: 10, response: "Turning volume up" };
+      return {
+        action: "media_volume_up",
+        value: 10,
+        response: "Turning volume up",
+      };
     }
     if (s.includes("volume down") || s.includes("turn down")) {
-      return { action: "media_volume_down", value: 10, response: "Turning volume down" };
+      return {
+        action: "media_volume_down",
+        value: 10,
+        response: "Turning volume down",
+      };
     }
 
     const tempMatch = s.match(/(?:set\s+)?temperature\s*(?:to\s+)?(\d+)/);
     if (tempMatch) {
       const temp = Math.min(30, Math.max(16, parseInt(tempMatch[1])));
-      return { action: "climate_set_temperature", value: temp, response: `Setting temperature to ${temp}°C` };
+      return {
+        action: "climate_set_temperature",
+        value: temp,
+        response: `Setting temperature to ${temp}°C`,
+      };
     }
-    if (s.includes("warmer") || s.includes("heat up") || s.includes("temperature up")) {
-      return { action: "climate_increase", value: 2, response: "Increasing temperature" };
+    if (
+      s.includes("warmer") ||
+      s.includes("heat up") ||
+      s.includes("temperature up")
+    ) {
+      return {
+        action: "climate_increase",
+        value: 2,
+        response: "Increasing temperature",
+      };
     }
-    if (s.includes("cooler") || s.includes("cool down") || s.includes("temperature down")) {
-      return { action: "climate_decrease", value: 2, response: "Decreasing temperature" };
+    if (
+      s.includes("cooler") ||
+      s.includes("cool down") ||
+      s.includes("temperature down")
+    ) {
+      return {
+        action: "climate_decrease",
+        value: 2,
+        response: "Decreasing temperature",
+      };
     }
 
     if (s.includes("turn on") && s.includes("climate")) {
-      return { action: "climate_turn_on", value: null, response: "Turning on climate control" };
+      return {
+        action: "climate_turn_on",
+        value: null,
+        response: "Turning on climate control",
+      };
     }
     if (s.includes("turn off") && s.includes("climate")) {
-      return { action: "climate_turn_off", value: null, response: "Turning off climate control" };
+      return {
+        action: "climate_turn_off",
+        value: null,
+        response: "Turning off climate control",
+      };
     }
     if (s.includes("turn on") && (s.includes("music") || s.includes("media"))) {
-      return { action: "media_turn_on", value: null, response: "Starting music" };
+      return {
+        action: "media_turn_on",
+        value: null,
+        response: "Starting music",
+      };
     }
-    if (s.includes("turn off") && (s.includes("music") || s.includes("media"))) {
-      return { action: "media_turn_off", value: null, response: "Stopping music" };
+    if (
+      s.includes("turn off") &&
+      (s.includes("music") || s.includes("media"))
+    ) {
+      return {
+        action: "media_turn_off",
+        value: null,
+        response: "Stopping music",
+      };
     }
     if (s.includes("turn on") && s.includes("lights")) {
-      return { action: "lights_turn_on", value: null, response: "Turning on lights" };
+      return {
+        action: "lights_turn_on",
+        value: null,
+        response: "Turning on lights",
+      };
     }
     if (s.includes("turn off") && s.includes("lights")) {
-      return { action: "lights_turn_off", value: null, response: "Turning off lights" };
+      return {
+        action: "lights_turn_off",
+        value: null,
+        response: "Turning off lights",
+      };
     }
 
-    const seatMatch = s.match(/(?:set\s+)?seat\s*(?:position\s*)?(?:to\s+)?(\d+)/);
+    const seatMatch = s.match(
+      /(?:set\s+)?seat\s*(?:position\s*)?(?:to\s+)?(\d+)/
+    );
     if (seatMatch) {
       const pos = Math.min(5, Math.max(1, parseInt(seatMatch[1])));
-      return { action: "seats_adjust", value: pos, response: `Adjusting seat to position ${pos}` };
+      return {
+        action: "seats_adjust",
+        value: pos,
+        response: `Adjusting seat to position ${pos}`,
+      };
     }
     if (s.includes("seat") && (s.includes("heat") || s.includes("heating"))) {
       if (s.includes("on") || s.includes("start")) {
-        return { action: "seats_heat_on", value: null, response: "Turning on seat heating" };
+        return {
+          action: "seats_heat_on",
+          value: null,
+          response: "Turning on seat heating",
+        };
       }
       if (s.includes("off") || s.includes("stop")) {
-        return { action: "seats_heat_off", value: null, response: "Turning off seat heating" };
+        return {
+          action: "seats_heat_off",
+          value: null,
+          response: "Turning off seat heating",
+        };
       }
     }
 
@@ -142,7 +220,11 @@ export default function VoiceModal({ open, onClose, dispatchAction, onNavigate }
       const command = parseCommand(currentInput);
 
       if (!command.action) {
-        const aiMessage = { role: "ai", text: command.response, id: Date.now() + Math.random() };
+        const aiMessage = {
+          role: "ai",
+          text: command.response,
+          id: Date.now() + Math.random(),
+        };
         setLog((prevLog) => [...prevLog, aiMessage]);
         speak(command.response);
         setPhase("listening");
@@ -150,7 +232,11 @@ export default function VoiceModal({ open, onClose, dispatchAction, onNavigate }
         return;
       }
 
-      const aiMessage = { role: "ai", text: command.response, id: Date.now() + Math.random() };
+      const aiMessage = {
+        role: "ai",
+        text: command.response,
+        id: Date.now() + Math.random(),
+      };
       setLog((prevLog) => [...prevLog, aiMessage]);
       speak(command.response);
 
@@ -192,15 +278,17 @@ export default function VoiceModal({ open, onClose, dispatchAction, onNavigate }
           key={i}
           className="w-1 rounded-full"
           style={{ backgroundColor: COLORS.accent }}
-          animate=
-            {phase === "listening"
+          animate={
+            phase === "listening"
               ? { height: ["4px", "32px", "4px"], opacity: [0.4, 1, 0.4] }
               : phase === "processing"
               ? { height: ["8px", "20px", "8px"], opacity: [0.6, 0.9, 0.6] }
-              : { height: "4px", opacity: 0.3 }}
+              : { height: "4px", opacity: 0.3 }
+          }
           transition={{
             duration: phase === "listening" ? 1.5 : 1,
-            repeat: phase === "listening" || phase === "processing" ? Infinity : 0,
+            repeat:
+              phase === "listening" || phase === "processing" ? Infinity : 0,
             delay: i * 0.1,
             ease: "easeInOut",
           }}
@@ -214,7 +302,12 @@ export default function VoiceModal({ open, onClose, dispatchAction, onNavigate }
       className={`flex w-full ${isUser ? "justify-end" : "justify-start"} mb-3`}
       initial={{ opacity: 0, y: 14, scale: 0.98 }}
       animate={{ opacity: 1, y: 0, scale: 1 }}
-      transition={{ type: "spring", stiffness: 240, damping: 22, duration: 0.35 }}
+      transition={{
+        type: "spring",
+        stiffness: 240,
+        damping: 22,
+        duration: 0.35,
+      }}
     >
       <div
         className={`max-w-[72%] px-4 py-3 rounded-2xl shadow-md ${
@@ -224,7 +317,9 @@ export default function VoiceModal({ open, onClose, dispatchAction, onNavigate }
         }`}
         style={{ backgroundColor: isUser ? COLORS.accent : undefined }}
       >
-        <p className="text-[15px] leading-6 font-medium antialiased">{message.text}</p>
+        <p className="text-[15px] leading-6 font-medium antialiased">
+          {message.text}
+        </p>
       </div>
     </motion.div>
   );
@@ -261,7 +356,12 @@ export default function VoiceModal({ open, onClose, dispatchAction, onNavigate }
               initial={{ y: "100%" }}
               animate={{ y: 0 }}
               exit={{ y: "100%" }}
-              transition={{ type: "spring", stiffness: 300, damping: 30, duration: 0.35 }}
+              transition={{
+                type: "spring",
+                stiffness: 300,
+                damping: 30,
+                duration: 0.35,
+              }}
             >
               <motion.div
                 className="flex justify-between items-center p-6 border-b border-white/10 w-full"
@@ -270,13 +370,19 @@ export default function VoiceModal({ open, onClose, dispatchAction, onNavigate }
                 transition={{ delay: 0.08 }}
               >
                 <div className="flex items-center gap-3 mx-auto">
-                  <div className="w-8 h-8 rounded-full flex items-center justify-center" style={{ backgroundColor: COLORS.accent }}>
+                  <div
+                    className="w-8 h-8 rounded-full flex items-center justify-center"
+                    style={{ backgroundColor: COLORS.accent }}
+                  >
                     <Mic size={16} className="text-white" />
                   </div>
                   <div>
-                
                     <p className="text-white/80 font-bold text-m">
-                      {phase === "listening" ? "Listening..." : phase === "processing" ? "Thinking..." : "Ready"}
+                      {phase === "listening"
+                        ? "Listening..."
+                        : phase === "processing"
+                        ? "Thinking..."
+                        : "Ready"}
                     </p>
                   </div>
                 </div>
@@ -309,15 +415,30 @@ export default function VoiceModal({ open, onClose, dispatchAction, onNavigate }
                   style={{ maxWidth: CHAT_MAX_WIDTH_PX }}
                 >
                   {log.length === 0 ? (
-                    <motion.div className="text-center py-8" initial={{ opacity: 0 }} animate={{ opacity: 1 }} transition={{ delay: 0.2 }}>
+                    <motion.div
+                      className="text-center py-8"
+                      initial={{ opacity: 0 }}
+                      animate={{ opacity: 1 }}
+                      transition={{ delay: 0.2 }}
+                    >
                       <p className="text-white/80 text-sm leading-relaxed">
-                        Try commands like:<br />"Set temperature to 22"<br />"Turn up the volume"<br />"Turn on the lights"
+                        Try commands like:
+                        <br />
+                        "Set temperature to 22"
+                        <br />
+                        "Turn up the volume"
+                        <br />
+                        "Turn on the lights"
                       </p>
                     </motion.div>
                   ) : (
                     <div className="space-y-2">
                       {log.map((message) => (
-                        <ChatBubble key={message.id} message={message} isUser={message.role === "user"} />
+                        <ChatBubble
+                          key={message.id}
+                          message={message}
+                          isUser={message.role === "user"}
+                        />
                       ))}
                       <div ref={chatEndRef} />
                     </div>
@@ -331,7 +452,10 @@ export default function VoiceModal({ open, onClose, dispatchAction, onNavigate }
                 animate={{ y: 0, opacity: 1 }}
                 transition={{ delay: 0.24 }}
               >
-                <div className="flex gap-3 w-full" style={{ maxWidth: CHAT_MAX_WIDTH_PX }}>
+                <div
+                  className="flex gap-3 w-full"
+                  style={{ maxWidth: CHAT_MAX_WIDTH_PX }}
+                >
                   <input
                     ref={inputRef}
                     value={input}

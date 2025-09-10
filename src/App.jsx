@@ -6,10 +6,10 @@ import SliderRow from "./components/SliderRow.jsx";
 import Sheet from "./components/Sheet.jsx";
 import VoiceModal from "./components/VoiceModal.jsx";
 
-// Dava Brand Colors
+// Brand colors
 const COLORS = {
   primary: "#192B37",
-  accent: "#3DD17B", 
+  accent: "#3DD17B",
   secondary: "#F99C11",
   gray: "#47555F",
   lightBg: "#E8EAEB",
@@ -17,15 +17,13 @@ const COLORS = {
   textSecondary: "#A3AAAF",
   cardAccents: {
     climate: "#3DD17B",
-    music: "#F99C11", 
+    music: "#F99C11",
     lighting: "#5899C4",
-    seats: "#FF5641"
-  }
+    seats: "#FF5641",
+  },
 };
 
-/* ---------------------------------------
-   Local storage helper
---------------------------------------- */
+/* ---------- localStorage hook ---------- */
 function useLocal(key, initial) {
   const [val, setVal] = useState(() => {
     try {
@@ -43,9 +41,7 @@ function useLocal(key, initial) {
   return [val, setVal];
 }
 
-/* ---------------------------------------
-   Small tween helper (requestAnimationFrame)
---------------------------------------- */
+/* ---------- rAF tween helper ---------- */
 function tweenNumber({ from, to, ms = 500, step, done }) {
   const start = performance.now();
   const d = Math.max(1, ms);
@@ -53,7 +49,7 @@ function tweenNumber({ from, to, ms = 500, step, done }) {
   let raf;
   const tick = (t) => {
     const k = Math.min(1, (t - start) / d);
-    const eased = 1 - Math.pow(1 - k, 3); // easeOutCubic
+    const eased = 1 - Math.pow(1 - k, 3);
     const v = from + delta * eased;
     step?.(v);
     if (k < 1) raf = requestAnimationFrame(tick);
@@ -63,15 +59,8 @@ function tweenNumber({ from, to, ms = 500, step, done }) {
   return () => cancelAnimationFrame(raf);
 }
 
-/* ---------------------------------------
-   App
---------------------------------------- */
-export default function App() {
-  // vehicle state
-  const [vehicle, setVehicle] = useLocal("dava.vehicle", defaultVehicle);
-  const v = useMemo(() => normalizeVehicle(vehicle), [vehicle]);
-
-  // clock
+/* ---------- Clock ---------- */
+const Clock = React.memo(function Clock() {
   const [now, setNow] = useState(() => new Date());
   useEffect(() => {
     const t = setInterval(() => setNow(new Date()), 1000);
@@ -79,51 +68,432 @@ export default function App() {
   }, []);
   const hh = String(now.getHours()).padStart(2, "0");
   const mm = String(now.getMinutes()).padStart(2, "0");
+  return (
+    <motion.div
+      initial={false}
+      className="text-6xl font-black mb-3 tracking-tight"
+      style={{ color: COLORS.primary }}
+    >
+      {hh}:{mm}
+    </motion.div>
+  );
+});
 
-  // sheets & assistant
+/* ---------- ModernCard ---------- */
+const ModernCard = React.memo(function ModernCard({
+  title,
+  icon: Icon,
+  active,
+  onClick,
+  accentColor,
+  description,
+  value,
+  unit,
+}) {
+  const headerBadgeStyle = useMemo(
+    () => ({
+      backgroundColor: active ? `${accentColor}20` : COLORS.lightBg,
+      color: active ? accentColor : COLORS.gray,
+    }),
+    [active, accentColor]
+  );
+  const iconStyle = useMemo(
+    () => ({
+      backgroundColor: active ? accentColor : `${accentColor}15`,
+      color: active ? "white" : accentColor,
+    }),
+    [active, accentColor]
+  );
+  const hoverOverlayStyle = useMemo(
+    () => ({
+      background: `linear-gradient(135deg, ${accentColor}20 0%, ${accentColor}10 100%)`,
+    }),
+    [accentColor]
+  );
+
+  return (
+    <motion.button
+      initial={false}
+      onClick={onClick}
+      className="group relative text-left w-full h-64 rounded-3xl border border-gray-200 bg-white/80 backdrop-blur-sm p-8 shadow-lg hover:shadow-2xl transition-all duration-500 focus:outline-none focus:ring-2 focus:ring-offset-2 overflow-hidden"
+      whileHover={{ scale: 1.02, y: -4 }}
+      whileTap={{ scale: 0.98 }}
+    >
+      <div
+        className="absolute inset-0 opacity-0 group-hover:opacity-5 transition-opacity duration-500"
+        style={hoverOverlayStyle}
+      />
+      <div className="flex items-start justify-between mb-6 relative z-10">
+        <div
+          className="w-16 h-16 rounded-2xl flex items-center justify-center shadow-sm transition-all duration-500 group-hover:scale-110"
+          style={iconStyle}
+        >
+          <Icon size={28} />
+        </div>
+
+        <div
+          className="text-xs px-3 py-1.5 rounded-full font-semibold tracking-wide transition-all duration-500"
+          style={headerBadgeStyle}
+        >
+          {active ? "ACTIVE" : "STANDBY"}
+        </div>
+      </div>
+
+      <div className="relative z-10">
+        <h3
+          className="text-2xl font-bold mb-2 transition-colors duration-500 group-hover:scale-105 origin-left"
+          style={{ color: active ? accentColor : COLORS.primary }}
+        >
+          {title}
+        </h3>
+
+        <p className="text-sm mb-4" style={{ color: COLORS.textSecondary }}>
+          {description}
+        </p>
+
+        <div className="flex items-end gap-2">
+          <span
+            className="text-3xl font-bold transition-all duration-500"
+            style={{ color: active ? accentColor : COLORS.primary }}
+          >
+            {value}
+          </span>
+          <span
+            className="text-lg font-medium mb-1"
+            style={{ color: COLORS.textSecondary }}
+          >
+            {unit}
+          </span>
+        </div>
+      </div>
+
+      <div
+        className="absolute bottom-0 left-0 h-1 transition-all duration-500"
+        style={{ width: active ? "100%" : "0%", backgroundColor: accentColor }}
+      />
+    </motion.button>
+  );
+});
+
+/* ---------- PRETTIER preset notification (AI-style sheet) ---------- */
+const PresetPrompt = React.memo(function PresetPrompt({
+  open,
+  onClose,
+  onAccept,
+}) {
+  if (!open) return null;
+
+  return (
+    <div className="fixed inset-0 z-[70] flex">
+      {/* Backdrop */}
+      <div
+        className="absolute inset-0"
+        style={{
+          backgroundColor: "rgba(0,0,0,0.38)",
+          backdropFilter: "blur(6px)",
+          WebkitBackdropFilter: "blur(6px)",
+        }}
+        onClick={onClose}
+      />
+      {/* Bottom sheet card */}
+      <div className="relative flex flex-col justify-end h-full w-full">
+        <div
+          className="w-full max-w-3xl mx-auto h-[60%] rounded-t-3xl overflow-hidden border shadow-2xl"
+          style={{
+            background:
+              "linear-gradient(180deg, rgba(255,255,255,0.9) 0%, rgba(245,247,248,0.85) 100%)",
+            borderColor: "rgba(25,43,55,0.12)",
+            boxShadow:
+              "0 24px 60px rgba(25,43,55,0.28), inset 0 1px 0 rgba(255,255,255,0.6)",
+          }}
+        >
+          {/* Header */}
+          <div
+            className="relative p-6 border-b flex items-center justify-center"
+            style={{
+              borderColor: "rgba(25,43,55,0.1)",
+              background:
+                "linear-gradient(135deg, rgba(61,209,123,0.12) 0%, rgba(88,153,196,0.12) 100%)",
+            }}
+          >
+            <div
+              className="text-lg font-extrabold tracking-tight"
+              style={{ color: COLORS.primary }}
+            >
+              Suggested preset
+            </div>
+            <button
+              onClick={onClose}
+              className="absolute right-6 top-6 w-9 h-9 rounded-full bg-black/5 hover:bg-black/10 transition grid place-items-center"
+              aria-label="Close"
+            >
+              <span className="text-black/60 text-lg leading-none">×</span>
+            </button>
+          </div>
+
+          {/* Body */}
+          <div className="px-6 py-6 flex justify-center">
+            <div className="w-full max-w-[560px]">
+              <div
+                className="rounded-2xl p-6 border shadow-sm"
+                style={{
+                  background: "white",
+                  borderColor: "rgba(25,43,55,0.08)",
+                }}
+              >
+                <div
+                  className="text-[17px] font-semibold mb-2"
+                  style={{ color: COLORS.primary }}
+                >
+                  I noticed that around this time you prefer these settings.
+                </div>
+                <div
+                  className="text-sm mb-4"
+                  style={{ color: COLORS.textSecondary }}
+                >
+                  Would you like to apply them now?
+                </div>
+
+                <div className="grid grid-cols-2 gap-3 mb-6">
+                  <div
+                    className="rounded-xl border p-3"
+                    style={{ borderColor: "rgba(25,43,55,0.08)" }}
+                  >
+                    <div
+                      className="text-xs mb-1"
+                      style={{ color: COLORS.gray }}
+                    >
+                      Climate
+                    </div>
+                    <div
+                      className="text-[15px] font-semibold"
+                      style={{ color: COLORS.primary }}
+                    >
+                      30°C
+                    </div>
+                  </div>
+                  <div
+                    className="rounded-xl border p-3"
+                    style={{ borderColor: "rgba(25,43,55,0.08)" }}
+                  >
+                    <div
+                      className="text-xs mb-1"
+                      style={{ color: COLORS.gray }}
+                    >
+                      Music volume
+                    </div>
+                    <div
+                      className="text-[15px] font-semibold"
+                      style={{ color: COLORS.primary }}
+                    >
+                      70%
+                    </div>
+                  </div>
+                  <div
+                    className="rounded-xl border p-3"
+                    style={{ borderColor: "rgba(25,43,55,0.08)" }}
+                  >
+                    <div
+                      className="text-xs mb-1"
+                      style={{ color: COLORS.gray }}
+                    >
+                      Lighting
+                    </div>
+                    <div
+                      className="text-[15px] font-semibold"
+                      style={{ color: COLORS.primary }}
+                    >
+                      High (100%)
+                    </div>
+                  </div>
+                  <div
+                    className="rounded-xl border p-3"
+                    style={{ borderColor: "rgba(25,43,55,0.08)" }}
+                  >
+                    <div
+                      className="text-xs mb-1"
+                      style={{ color: COLORS.gray }}
+                    >
+                      Seats
+                    </div>
+                    <div
+                      className="text-[15px] font-semibold"
+                      style={{ color: COLORS.primary }}
+                    >
+                      Heat On, Pos 2
+                    </div>
+                  </div>
+                </div>
+
+                <div className="flex justify-end gap-3">
+                  <button
+                    onClick={onClose}
+                    className="px-5 py-2.5 rounded-xl font-semibold border hover:shadow-sm transition"
+                    style={{
+                      borderColor: "rgba(25,43,55,0.15)",
+                      color: COLORS.primary,
+                      background: "#fff",
+                    }}
+                  >
+                    Not now
+                  </button>
+                  <button
+                    onClick={() => {
+                      onClose();
+                      onAccept?.();
+                    }}
+                    className="px-5 py-2.5 rounded-xl font-semibold text-white shadow hover:shadow-md transition"
+                    style={{ background: COLORS.accent }}
+                  >
+                    Apply preset
+                  </button>
+                </div>
+              </div>
+            </div>
+          </div>
+
+          {/* footer fade */}
+          <div
+            className="h-6 pointer-events-none"
+            style={{
+              background:
+                "linear-gradient(to top, rgba(255,255,255,0.9), rgba(255,255,255,0))",
+            }}
+          />
+        </div>
+      </div>
+    </div>
+  );
+});
+
+/* ---------- App ---------- */
+export default function App() {
+  // Vehicle state
+  const [vehicle, setVehicle] = useLocal("dava.vehicle", defaultVehicle);
+  const v = useMemo(() => normalizeVehicle(vehicle), [vehicle]);
+
+  // Sheets & AI
   const [sheet, setSheet] = useState({ open: false, kind: null, title: "" });
   const [aiOpen, setAiOpen] = useState(false);
   const closeSheet = () => setSheet({ open: false, kind: null, title: "" });
   const openSheet = (kind, title) => setSheet({ open: true, kind, title });
 
-  // cancel any in-flight tween
-  const cancelTweenRef = useRef(null);
-  const startTween = (args) => {
-    cancelTweenRef.current?.();
-    cancelTweenRef.current = tweenNumber(args);
+  // Per-field tweeners
+  const tweeners = useRef({});
+  const startTweenKey = (key, args) => {
+    if (tweeners.current[key]) tweeners.current[key]();
+    tweeners.current[key] = tweenNumber(args);
+  };
+  // 👇 NEW: delayed tween starter (to begin 1s later)
+  const startTweenKeyDelayed = (key, args, delayMs = 1000) => {
+    if (tweeners.current[key]) tweeners.current[key]();
+    const launch = () => {
+      tweeners.current[key] = tweenNumber(args);
+    };
+    if (delayMs > 0) setTimeout(launch, delayMs);
+    else launch();
   };
 
-  /* ---------------------------------------
-     Intent → open sheet + animate
-  --------------------------------------- */
+  /* ---------- Preset notification ---------- */
+  const [presetPrompt, setPresetPrompt] = useState({
+    open: false,
+    shownCount: 0,
+  });
+  const presetTimers = useRef([]);
+
+  useEffect(() => {
+    const t1 = setTimeout(() => {
+      setPresetPrompt((p) =>
+        p.shownCount === 0 ? { open: true, shownCount: 1 } : p
+      );
+    }, 20000);
+    const t2 = setTimeout(() => {
+      setPresetPrompt((p) =>
+        p.shownCount === 1 ? { open: true, shownCount: 2 } : p
+      );
+    }, 50000);
+    presetTimers.current = [t1, t2];
+    return () => presetTimers.current.forEach(clearTimeout);
+  }, []);
+
+  const applyPresetAnimated = () => {
+    // Climate temp to 30
+    startTweenKeyDelayed("temp", {
+      from: v.climate.temp,
+      to: 30,
+      ms: 500,
+      step: (val) =>
+        setVehicle((s) => ({
+          ...s,
+          climate: {
+            ...normalizeVehicle(s).climate,
+            on: true,
+            temp: Math.round(val),
+          },
+        })),
+    });
+    // Volume to 70
+    startTweenKeyDelayed("volume", {
+      from: v.media.volume,
+      to: 70,
+      ms: 500,
+      step: (val) =>
+        setVehicle((s) => ({
+          ...s,
+          media: {
+            ...normalizeVehicle(s).media,
+            on: true,
+            volume: Math.round(val),
+          },
+        })),
+    });
+    // Lights to 100
+    startTweenKeyDelayed("lights", {
+      from: v.lights.brightness,
+      to: 100,
+      ms: 500,
+      step: (val) =>
+        setVehicle((s) => ({
+          ...s,
+          lights: {
+            ...normalizeVehicle(s).lights,
+            on: true,
+            brightness: Math.round(val),
+          },
+        })),
+    });
+    // Seats heat on, pos 2
+    setVehicle((s) => ({
+      ...s,
+      seats: { ...normalizeVehicle(s).seats, heatOn: true, position: 2 },
+    }));
+  };
+
+  /* ---------- Actions (AI closes, then animate with 1s delay) ---------- */
   const coreDispatch = (action, rawValue) => {
     const clamp = (n, lo, hi) => Math.min(hi, Math.max(lo, n));
     const toInt = (n) => (Number.isFinite(+n) ? Math.round(+n) : 0);
 
     switch (action) {
-      /* ----- CLIMATE ----- */
-      case "climate_turn_on": {
+      case "climate_turn_on":
         openSheet("climate", "Climate Control");
         setVehicle((s) => ({
           ...s,
           climate: { ...normalizeVehicle(s).climate, on: true },
         }));
         break;
-      }
-      case "climate_turn_off": {
+      case "climate_turn_off":
         openSheet("climate", "Climate Control");
         setVehicle((s) => ({
           ...s,
           climate: { ...normalizeVehicle(s).climate, on: false },
         }));
         break;
-      }
       case "climate_set_temperature": {
         const to = clamp(toInt(rawValue), 16, 30);
         openSheet("climate", "Climate Control");
-        const from = v.climate.temp;
-        startTween({
-          from,
+        startTweenKeyDelayed("temp", {
+          from: v.climate.temp,
           to,
           ms: 500,
           step: (val) =>
@@ -139,9 +509,9 @@ export default function App() {
         break;
       }
       case "climate_increase": {
-        openSheet("climate", "Climate Control");
         const to = clamp(v.climate.temp + 1, 16, 30);
-        startTween({
+        openSheet("climate", "Climate Control");
+        startTweenKeyDelayed("temp", {
           from: v.climate.temp,
           to,
           ms: 500,
@@ -158,9 +528,9 @@ export default function App() {
         break;
       }
       case "climate_decrease": {
-        openSheet("climate", "Climate Control");
         const to = clamp(v.climate.temp - 1, 16, 30);
-        startTween({
+        openSheet("climate", "Climate Control");
+        startTweenKeyDelayed("temp", {
           from: v.climate.temp,
           to,
           ms: 500,
@@ -177,11 +547,10 @@ export default function App() {
         break;
       }
 
-      /* ----- MUSIC / INFOTAINMENT (volume only) ----- */
       case "infotainment_set_volume": {
         const to = clamp(toInt(rawValue), 0, 100);
         openSheet("music", "Entertainment System");
-        startTween({
+        startTweenKeyDelayed("volume", {
           from: v.media.volume,
           to,
           ms: 500,
@@ -198,9 +567,9 @@ export default function App() {
         break;
       }
       case "infotainment_volume_up": {
-        const to = clamp(v.media.volume + 5, 0, 100);
+        const to = Math.min(100, v.media.volume + 5);
         openSheet("music", "Entertainment System");
-        startTween({
+        startTweenKeyDelayed("volume", {
           from: v.media.volume,
           to,
           ms: 500,
@@ -217,9 +586,9 @@ export default function App() {
         break;
       }
       case "infotainment_volume_down": {
-        const to = clamp(v.media.volume - 5, 0, 100);
+        const to = Math.max(0, v.media.volume - 5);
         openSheet("music", "Entertainment System");
-        startTween({
+        startTweenKeyDelayed("volume", {
           from: v.media.volume,
           to,
           ms: 500,
@@ -236,11 +605,10 @@ export default function App() {
         break;
       }
 
-      /* ----- LIGHTS ----- */
       case "lights_turn_on": {
-        openSheet("lighting", "Interior Lighting");
         const to = Math.max(20, v.lights.brightness || 20);
-        startTween({
+        openSheet("lighting", "Interior Lighting");
+        startTweenKeyDelayed("lights", {
           from: v.lights.brightness,
           to,
           ms: 500,
@@ -258,7 +626,7 @@ export default function App() {
       }
       case "lights_turn_off": {
         openSheet("lighting", "Interior Lighting");
-        startTween({
+        startTweenKeyDelayed("lights", {
           from: v.lights.brightness,
           to: 0,
           ms: 500,
@@ -275,9 +643,9 @@ export default function App() {
         break;
       }
       case "lights_dim": {
-        openSheet("lighting", "Interior Lighting");
         const to = Math.max(0, v.lights.brightness - 10);
-        startTween({
+        openSheet("lighting", "Interior Lighting");
+        startTweenKeyDelayed("lights", {
           from: v.lights.brightness,
           to,
           ms: 500,
@@ -294,9 +662,9 @@ export default function App() {
         break;
       }
       case "lights_brighten": {
-        openSheet("lighting", "Interior Lighting");
         const to = Math.min(100, v.lights.brightness + 10);
-        startTween({
+        openSheet("lighting", "Interior Lighting");
+        startTweenKeyDelayed("lights", {
           from: v.lights.brightness,
           to,
           ms: 500,
@@ -313,7 +681,6 @@ export default function App() {
         break;
       }
 
-      /* ----- SEATS (global) ----- */
       case "seats_heat_on":
         openSheet("seats", "Seat Controls");
         setVehicle((s) => ({
@@ -331,7 +698,7 @@ export default function App() {
       case "seats_adjust": {
         const to = Math.min(5, Math.max(1, Math.round(+rawValue || 0)));
         openSheet("seats", "Seat Controls");
-        startTween({
+        startTweenKeyDelayed("seatpos", {
           from: v.seats.position,
           to,
           ms: 500,
@@ -346,142 +713,39 @@ export default function App() {
         });
         break;
       }
-
       default:
         break;
     }
   };
 
-  // wrapper so animation runs AFTER the AI closes
   const dispatchAfterAiClose = (action, value) => {
-    setAiOpen(false); // 1) close immediately
-    setTimeout(() => {
-      // 2) wait for modal to fade out
-      coreDispatch(action, value); // 3) then open the sheet + animate
-    }, 300);
+    setAiOpen(false);
+    setTimeout(() => coreDispatch(action, value), 300);
   };
 
-  /* ---------------------------------------
-     Modern Card Component
-  --------------------------------------- */
-  const ModernCard = ({ title, icon: Icon, active, children, onClick, accentColor, description, value, unit }) => (
-    <motion.button
-      onClick={onClick}
-      className="group relative text-left w-full h-64 rounded-3xl border border-gray-200 bg-white/80 backdrop-blur-sm p-8 shadow-lg hover:shadow-2xl transition-all duration-500 focus:outline-none focus:ring-2 focus:ring-offset-2 overflow-hidden"
-      style={{ '--focus-color': accentColor }}
-      whileHover={{ scale: 1.02, y: -4 }}
-      whileTap={{ scale: 0.98 }}
-    >
-      {/* Background gradient overlay */}
-      <div 
-        className="absolute inset-0 opacity-0 group-hover:opacity-5 transition-opacity duration-500"
-        style={{ 
-          background: `linear-gradient(135deg, ${accentColor}20 0%, ${accentColor}10 100%)`
-        }}
-      />
-      
-      {/* Header */}
-      <div className="flex items-start justify-between mb-6 relative z-10">
-        <div 
-          className="w-16 h-16 rounded-2xl flex items-center justify-center shadow-sm transition-all duration-500 group-hover:scale-110"
-          style={{ 
-            backgroundColor: active ? accentColor : `${accentColor}15`,
-            color: active ? "white" : accentColor
-          }}
-        >
-          <Icon size={28} />
-        </div>
-        
-        <div 
-          className="text-xs px-3 py-1.5 rounded-full font-semibold tracking-wide transition-all duration-500"
-          style={{ 
-            backgroundColor: active ? `${accentColor}20` : COLORS.lightBg,
-            color: active ? accentColor : COLORS.gray
-          }}
-        >
-          {active ? "ACTIVE" : "STANDBY"}
-        </div>
-      </div>
-
-      {/* Content */}
-      <div className="relative z-10">
-        <h3 
-          className="text-2xl font-bold mb-2 transition-colors duration-500 group-hover:scale-105 origin-left"
-          style={{ color: active ? accentColor : COLORS.primary }}
-        >
-          {title}
-        </h3>
-        
-        <p className="text-sm mb-4" style={{ color: COLORS.textSecondary }}>
-          {description}
-        </p>
-        
-        {/* Value display */}
-        <div className="flex items-end gap-2">
-          <span 
-            className="text-3xl font-bold transition-all duration-500"
-            style={{ color: active ? accentColor : COLORS.primary }}
-          >
-            {value}
-          </span>
-          <span 
-            className="text-lg font-medium mb-1"
-            style={{ color: COLORS.textSecondary }}
-          >
-            {unit}
-          </span>
-        </div>
-        
-        <div className="text-sm mt-2" style={{ color: COLORS.gray }}>
-          {children}
-        </div>
-      </div>
-
-      {/* Subtle animation line */}
-      <div 
-        className="absolute bottom-0 left-0 h-1 transition-all duration-500"
-        style={{ 
-          width: active ? "100%" : "0%",
-          backgroundColor: accentColor
-        }}
-      />
-    </motion.button>
-  );
-
-  /* ---------------------------------------
-     Render
-  --------------------------------------- */
+  /* ---------- Render ---------- */
   return (
-    <div className="min-h-screen relative" style={{ backgroundColor: COLORS.lightBg }}>
+    <div
+      className="min-h-screen relative"
+      style={{ backgroundColor: COLORS.lightBg }}
+    >
       <div className="max-w-6xl mx-auto p-6 pb-32">
         {/* Header */}
         <div className="text-center mb-12">
-          <motion.div 
-            className="text-6xl font-black mb-3 tracking-tight"
-            style={{ color: COLORS.primary }}
-            initial={{ opacity: 0, y: -30 }}
-            animate={{ opacity: 1, y: 0 }}
-            transition={{ duration: 0.8, ease: "easeOut" }}
-          >
-            {hh}:{mm}
-          </motion.div>
-          <motion.div 
+          <Clock />
+          <motion.div
+            initial={false}
             className="text-xl font-medium"
             style={{ color: COLORS.gray }}
-            initial={{ opacity: 0 }}
-            animate={{ opacity: 1 }}
-            transition={{ duration: 0.8, delay: 0.2 }}
           >
             Your Vehicle AI Assistant
           </motion.div>
         </div>
 
-        {/* Modern Dashboard Cards - 2x2 Grid */}
-        <motion.div 
+        {/* Cards */}
+        <motion.div
+          initial={false}
           className="grid grid-cols-1 lg:grid-cols-2 gap-8 mb-16"
-          initial={{ opacity: 0, y: 30 }}
-          animate={{ opacity: 1, y: 0 }}
-          transition={{ duration: 0.8, delay: 0.4 }}
         >
           <ModernCard
             title="Climate"
@@ -492,10 +756,7 @@ export default function App() {
             value={v.climate.temp}
             unit="°C"
             onClick={() => openSheet("climate", "Climate Control")}
-          >
-       
-          </ModernCard>
-
+          />
           <ModernCard
             title="Entertainment"
             icon={Volume2}
@@ -505,10 +766,7 @@ export default function App() {
             value={v.media.volume}
             unit="%"
             onClick={() => openSheet("music", "Entertainment System")}
-          >
-     
-          </ModernCard>
-
+          />
           <ModernCard
             title="Lighting"
             icon={Lightbulb}
@@ -518,10 +776,7 @@ export default function App() {
             value={v.lights.brightness}
             unit="%"
             onClick={() => openSheet("lighting", "Interior Lighting")}
-          >
-        
-          </ModernCard>
-
+          />
           <ModernCard
             title="Seats"
             icon={Flame}
@@ -531,52 +786,27 @@ export default function App() {
             value={v.seats.position}
             unit=""
             onClick={() => openSheet("seats", "Seat Controls")}
-          >
-        
-          </ModernCard>
+          />
         </motion.div>
       </div>
 
-      {/* Siri-style Voice Assistant Button - Fixed at bottom */}
-      <div className="fixed bottom-8 left-1/2 transform -translate-x-1/2 z-50">
+      {/* Centered voice button */}
+      <div className="fixed bottom-8 left-1/2 -translate-x-1/2 z-50">
         <motion.button
+          initial={false}
           onClick={() => setAiOpen(true)}
           className="relative w-20 h-20 rounded-full shadow-2xl text-white flex items-center justify-center overflow-hidden"
           style={{ backgroundColor: COLORS.accent }}
           whileHover={{ scale: 1.05 }}
           whileTap={{ scale: 0.95 }}
-          initial={{ y: 100, opacity: 0 }}
-          animate={{ y: 0, opacity: 1 }}
-          transition={{ duration: 0.8, delay: 0.8, type: "spring", stiffness: 200 }}
+          aria-label="Assistant"
+          title="Assistant"
         >
-          {/* Pulsing ring effect */}
-          <motion.div
-            className="absolute inset-0 rounded-full border-2"
-            style={{ borderColor: COLORS.accent }}
-            animate={{ 
-              scale: [1, 1.4, 1],
-              opacity: [0.8, 0, 0.8]
-            }}
-            transition={{ 
-              duration: 2,
-              repeat: Infinity,
-              ease: "easeOut"
-            }}
-          />
-          
-          {/* Gradient overlay */}
-          <div 
-            className="absolute inset-0 rounded-full"
-            style={{
-              background: `linear-gradient(135deg, ${COLORS.accent} 0%, #2BC467 100%)`
-            }}
-          />
-          
           <Mic size={32} className="relative z-10" />
         </motion.button>
       </div>
 
-      {/* SHEET overlay */}
+      {/* Sheet */}
       <Sheet open={sheet.open} title={sheet.title} onClose={closeSheet}>
         {sheet.kind === "climate" && (
           <div key="climate">
@@ -589,7 +819,11 @@ export default function App() {
                   })
                 }
                 className="px-6 py-3 rounded-xl font-medium text-white transition-all duration-200 hover:scale-105"
-                style={{ backgroundColor: v.climate.on ? COLORS.gray : COLORS.cardAccents.climate }}
+                style={{
+                  backgroundColor: v.climate.on
+                    ? COLORS.gray
+                    : COLORS.cardAccents.climate,
+                }}
               >
                 {v.climate.on ? "Turn Off" : "Turn On"}
               </button>
@@ -627,7 +861,11 @@ export default function App() {
                   })
                 }
                 className="px-6 py-3 rounded-xl font-medium text-white transition-all duration-200 hover:scale-105"
-                style={{ backgroundColor: v.media.on ? COLORS.gray : COLORS.cardAccents.music }}
+                style={{
+                  backgroundColor: v.media.on
+                    ? COLORS.gray
+                    : COLORS.cardAccents.music,
+                }}
               >
                 {v.media.on ? "Turn Off" : "Turn On"}
               </button>
@@ -673,7 +911,11 @@ export default function App() {
                   })
                 }
                 className="px-6 py-3 rounded-xl font-medium text-white transition-all duration-200 hover:scale-105"
-                style={{ backgroundColor: v.lights.on ? COLORS.gray : COLORS.cardAccents.lighting }}
+                style={{
+                  backgroundColor: v.lights.on
+                    ? COLORS.gray
+                    : COLORS.cardAccents.lighting,
+                }}
               >
                 {v.lights.on ? "Turn Off" : "Turn On"}
               </button>
@@ -714,7 +956,11 @@ export default function App() {
                   }))
                 }
                 className="px-6 py-3 rounded-xl font-medium text-white transition-all duration-200 hover:scale-105"
-                style={{ backgroundColor: v.seats.heatOn ? COLORS.gray : COLORS.cardAccents.seats }}
+                style={{
+                  backgroundColor: v.seats.heatOn
+                    ? COLORS.gray
+                    : COLORS.cardAccents.seats,
+                }}
               >
                 {v.seats.heatOn ? "Heat Off" : "Heat On"}
               </button>
@@ -739,11 +985,21 @@ export default function App() {
         )}
       </Sheet>
 
-      {/* Siri-style Voice Modal */}
+      {/* Voice Modal */}
       <VoiceModal
         open={aiOpen}
         onClose={() => setAiOpen(false)}
-        dispatchAction={dispatchAfterAiClose}
+        dispatchAction={(a, v) => {
+          setAiOpen(false);
+          setTimeout(() => coreDispatch(a, v), 300);
+        }}
+      />
+
+      {/* Pretty preset prompt */}
+      <PresetPrompt
+        open={presetPrompt.open}
+        onClose={() => setPresetPrompt((p) => ({ ...p, open: false }))}
+        onAccept={applyPresetAnimated}
       />
     </div>
   );
