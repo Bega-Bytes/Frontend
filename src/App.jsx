@@ -90,26 +90,17 @@ const ModernCard = React.memo(function ModernCard({
   value,
   unit,
 }) {
-  const headerBadgeStyle = useMemo(
-    () => ({
-      backgroundColor: active ? `${accentColor}20` : COLORS.lightBg,
-      color: active ? accentColor : COLORS.gray,
-    }),
-    [active, accentColor]
-  );
-  const iconStyle = useMemo(
-    () => ({
-      backgroundColor: active ? accentColor : `${accentColor}15`,
-      color: active ? "white" : accentColor,
-    }),
-    [active, accentColor]
-  );
-  const hoverOverlayStyle = useMemo(
-    () => ({
-      background: `linear-gradient(135deg, ${accentColor}20 0%, ${accentColor}10 100%)`,
-    }),
-    [accentColor]
-  );
+  const headerBadgeStyle = {
+    backgroundColor: active ? `${accentColor}20` : COLORS.lightBg,
+    color: active ? accentColor : COLORS.gray,
+  };
+  const iconStyle = {
+    backgroundColor: active ? accentColor : `${accentColor}15`,
+    color: active ? "white" : accentColor,
+  };
+  const hoverOverlayStyle = {
+    background: `linear-gradient(135deg, ${accentColor}20 0%, ${accentColor}10 100%)`,
+  };
 
   return (
     <motion.button
@@ -175,14 +166,13 @@ const ModernCard = React.memo(function ModernCard({
   );
 });
 
-/* ---------- PRETTIER preset notification (AI-style sheet) ---------- */
+/* ---------- PRESET NOTIFICATION (AI-style bottom sheet) ---------- */
 const PresetPrompt = React.memo(function PresetPrompt({
   open,
   onClose,
   onAccept,
 }) {
   if (!open) return null;
-
   return (
     <div className="fixed inset-0 z-[70] flex">
       {/* Backdrop */}
@@ -384,41 +374,22 @@ export default function App() {
     if (tweeners.current[key]) tweeners.current[key]();
     tweeners.current[key] = tweenNumber(args);
   };
-  // 👇 NEW: delayed tween starter (to begin 1s later)
-  const startTweenKeyDelayed = (key, args, delayMs = 1000) => {
-    if (tweeners.current[key]) tweeners.current[key]();
-    const launch = () => {
-      tweeners.current[key] = tweenNumber(args);
-    };
-    if (delayMs > 0) setTimeout(launch, delayMs);
-    else launch();
-  };
 
-  /* ---------- Preset notification ---------- */
+  /* ---------- Preset notification state & timer (show once after 15s) ---------- */
   const [presetPrompt, setPresetPrompt] = useState({
     open: false,
-    shownCount: 0,
+    shown: false,
   });
-  const presetTimers = useRef([]);
-
   useEffect(() => {
-    const t1 = setTimeout(() => {
-      setPresetPrompt((p) =>
-        p.shownCount === 0 ? { open: true, shownCount: 1 } : p
-      );
-    }, 20000);
-    const t2 = setTimeout(() => {
-      setPresetPrompt((p) =>
-        p.shownCount === 1 ? { open: true, shownCount: 2 } : p
-      );
-    }, 50000);
-    presetTimers.current = [t1, t2];
-    return () => presetTimers.current.forEach(clearTimeout);
+    const t = setTimeout(() => {
+      setPresetPrompt((p) => (p.shown ? p : { open: true, shown: true }));
+    }, 5000); // <— change this to adjust first appearance delay (ms)
+    return () => clearTimeout(t);
   }, []);
 
   const applyPresetAnimated = () => {
-    // Climate temp to 30
-    startTweenKeyDelayed("temp", {
+    // Climate to 30
+    startTweenKey("temp", {
       from: v.climate.temp,
       to: 30,
       ms: 500,
@@ -433,7 +404,7 @@ export default function App() {
         })),
     });
     // Volume to 70
-    startTweenKeyDelayed("volume", {
+    startTweenKey("volume", {
       from: v.media.volume,
       to: 70,
       ms: 500,
@@ -448,7 +419,7 @@ export default function App() {
         })),
     });
     // Lights to 100
-    startTweenKeyDelayed("lights", {
+    startTweenKey("lights", {
       from: v.lights.brightness,
       to: 100,
       ms: 500,
@@ -469,12 +440,13 @@ export default function App() {
     }));
   };
 
-  /* ---------- Actions (AI closes, then animate with 1s delay) ---------- */
+  /* ---------- Action dispatcher (unchanged) ---------- */
   const coreDispatch = (action, rawValue) => {
     const clamp = (n, lo, hi) => Math.min(hi, Math.max(lo, n));
     const toInt = (n) => (Number.isFinite(+n) ? Math.round(+n) : 0);
 
     switch (action) {
+      // Climate
       case "climate_turn_on":
         openSheet("climate", "Climate Control");
         setVehicle((s) => ({
@@ -492,7 +464,7 @@ export default function App() {
       case "climate_set_temperature": {
         const to = clamp(toInt(rawValue), 16, 30);
         openSheet("climate", "Climate Control");
-        startTweenKeyDelayed("temp", {
+        startTweenKey("temp", {
           from: v.climate.temp,
           to,
           ms: 500,
@@ -511,7 +483,7 @@ export default function App() {
       case "climate_increase": {
         const to = clamp(v.climate.temp + 1, 16, 30);
         openSheet("climate", "Climate Control");
-        startTweenKeyDelayed("temp", {
+        startTweenKey("temp", {
           from: v.climate.temp,
           to,
           ms: 500,
@@ -530,7 +502,7 @@ export default function App() {
       case "climate_decrease": {
         const to = clamp(v.climate.temp - 1, 16, 30);
         openSheet("climate", "Climate Control");
-        startTweenKeyDelayed("temp", {
+        startTweenKey("temp", {
           from: v.climate.temp,
           to,
           ms: 500,
@@ -547,10 +519,11 @@ export default function App() {
         break;
       }
 
+      // Music / Infotainment
       case "infotainment_set_volume": {
-        const to = clamp(toInt(rawValue), 0, 100);
+        const to = Math.min(100, Math.max(0, Number(rawValue) || 0));
         openSheet("music", "Entertainment System");
-        startTweenKeyDelayed("volume", {
+        startTweenKey("volume", {
           from: v.media.volume,
           to,
           ms: 500,
@@ -559,7 +532,7 @@ export default function App() {
               ...s,
               media: {
                 ...normalizeVehicle(s).media,
-                on: true,
+                on: to > 0,
                 volume: Math.round(val),
               },
             })),
@@ -569,7 +542,7 @@ export default function App() {
       case "infotainment_volume_up": {
         const to = Math.min(100, v.media.volume + 5);
         openSheet("music", "Entertainment System");
-        startTweenKeyDelayed("volume", {
+        startTweenKey("volume", {
           from: v.media.volume,
           to,
           ms: 500,
@@ -588,7 +561,7 @@ export default function App() {
       case "infotainment_volume_down": {
         const to = Math.max(0, v.media.volume - 5);
         openSheet("music", "Entertainment System");
-        startTweenKeyDelayed("volume", {
+        startTweenKey("volume", {
           from: v.media.volume,
           to,
           ms: 500,
@@ -605,10 +578,11 @@ export default function App() {
         break;
       }
 
+      // Lights
       case "lights_turn_on": {
         const to = Math.max(20, v.lights.brightness || 20);
         openSheet("lighting", "Interior Lighting");
-        startTweenKeyDelayed("lights", {
+        startTweenKey("lights", {
           from: v.lights.brightness,
           to,
           ms: 500,
@@ -626,7 +600,7 @@ export default function App() {
       }
       case "lights_turn_off": {
         openSheet("lighting", "Interior Lighting");
-        startTweenKeyDelayed("lights", {
+        startTweenKey("lights", {
           from: v.lights.brightness,
           to: 0,
           ms: 500,
@@ -645,7 +619,7 @@ export default function App() {
       case "lights_dim": {
         const to = Math.max(0, v.lights.brightness - 10);
         openSheet("lighting", "Interior Lighting");
-        startTweenKeyDelayed("lights", {
+        startTweenKey("lights", {
           from: v.lights.brightness,
           to,
           ms: 500,
@@ -664,7 +638,7 @@ export default function App() {
       case "lights_brighten": {
         const to = Math.min(100, v.lights.brightness + 10);
         openSheet("lighting", "Interior Lighting");
-        startTweenKeyDelayed("lights", {
+        startTweenKey("lights", {
           from: v.lights.brightness,
           to,
           ms: 500,
@@ -680,7 +654,27 @@ export default function App() {
         });
         break;
       }
+      case "lights_set": {
+        const to = Math.min(100, Math.max(0, Number(rawValue) || 0));
+        openSheet("lighting", "Interior Lighting");
+        startTweenKey("lights", {
+          from: v.lights.brightness,
+          to,
+          ms: 500,
+          step: (val) =>
+            setVehicle((s) => ({
+              ...s,
+              lights: {
+                ...normalizeVehicle(s).lights,
+                on: to > 0,
+                brightness: Math.round(val),
+              },
+            })),
+        });
+        break;
+      }
 
+      // Seats
       case "seats_heat_on":
         openSheet("seats", "Seat Controls");
         setVehicle((s) => ({
@@ -698,7 +692,7 @@ export default function App() {
       case "seats_adjust": {
         const to = Math.min(5, Math.max(1, Math.round(+rawValue || 0)));
         openSheet("seats", "Seat Controls");
-        startTweenKeyDelayed("seatpos", {
+        startTweenKey("seatpos", {
           from: v.seats.position,
           to,
           ms: 500,
@@ -716,11 +710,6 @@ export default function App() {
       default:
         break;
     }
-  };
-
-  const dispatchAfterAiClose = (action, value) => {
-    setAiOpen(false);
-    setTimeout(() => coreDispatch(action, value), 300);
   };
 
   /* ---------- Render ---------- */
@@ -755,7 +744,13 @@ export default function App() {
             description="Cabin temperature control"
             value={v.climate.temp}
             unit="°C"
-            onClick={() => openSheet("climate", "Climate Control")}
+            onClick={() =>
+              setSheet({
+                open: true,
+                kind: "climate",
+                title: "Climate Control",
+              })
+            }
           />
           <ModernCard
             title="Entertainment"
@@ -765,7 +760,13 @@ export default function App() {
             description="Audio and media system"
             value={v.media.volume}
             unit="%"
-            onClick={() => openSheet("music", "Entertainment System")}
+            onClick={() =>
+              setSheet({
+                open: true,
+                kind: "music",
+                title: "Entertainment System",
+              })
+            }
           />
           <ModernCard
             title="Lighting"
@@ -775,7 +776,13 @@ export default function App() {
             description="Interior lighting control"
             value={v.lights.brightness}
             unit="%"
-            onClick={() => openSheet("lighting", "Interior Lighting")}
+            onClick={() =>
+              setSheet({
+                open: true,
+                kind: "lighting",
+                title: "Interior Lighting",
+              })
+            }
           />
           <ModernCard
             title="Seats"
@@ -785,12 +792,14 @@ export default function App() {
             description="Seat position and heating"
             value={v.seats.position}
             unit=""
-            onClick={() => openSheet("seats", "Seat Controls")}
+            onClick={() =>
+              setSheet({ open: true, kind: "seats", title: "Seat Controls" })
+            }
           />
         </motion.div>
       </div>
 
-      {/* Centered voice button */}
+      {/* Voice Button */}
       <div className="fixed bottom-8 left-1/2 -translate-x-1/2 z-50">
         <motion.button
           initial={false}
@@ -995,7 +1004,7 @@ export default function App() {
         }}
       />
 
-      {/* Pretty preset prompt */}
+      {/* Preset notification (shows once after 15s) */}
       <PresetPrompt
         open={presetPrompt.open}
         onClose={() => setPresetPrompt((p) => ({ ...p, open: false }))}

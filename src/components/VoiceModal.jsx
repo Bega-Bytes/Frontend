@@ -1,8 +1,8 @@
-import React, { useEffect, useRef, useState } from "react";
+import React, { useEffect, useRef, useState, useCallback } from "react";
 import { AnimatePresence, motion } from "framer-motion";
 import { Mic, X } from "lucide-react";
 
-// Dava Brand Colors
+// Brand colors
 const COLORS = {
   primary: "#192B37",
   accent: "#F99C11",
@@ -13,327 +13,202 @@ const COLORS = {
   textSecondary: "#A3AAAF",
 };
 
-// --- TUNABLE UI KNOBS ---
+// Layout
 const CHAT_MAX_WIDTH_PX = 560;
 const SHEET_MAX_WIDTH = "max-w-3xl";
-const SHEET_HEIGHT = "h-[60%]";
+const SHEET_HEIGHT = "h-[30%]";
 
-export default function VoiceModal({
-  open,
-  onClose,
-  dispatchAction,
-  onNavigate,
-}) {
+// ---- speech helper
+function speak(text) {
+  try {
+    const u = new SpeechSynthesisUtterance(text);
+    u.rate = 1;
+    u.pitch = 1;
+    u.lang = "en-US";
+    window.speechSynthesis?.speak(u);
+  } catch {}
+}
+
+// turn an action/value into a short spoken sentence
+function spokenFromAction(action, value) {
+  switch (action) {
+    case "climate_turn_off":
+      return "Turning climate off.";
+    case "climate_set_temperature":
+      return `Setting temperature to ${value} degrees.`;
+    case "infotainment_set_volume":
+      return `Setting volume to ${value}.`;
+    case "lights_turn_off":
+      return "Turning lights off.";
+    case "lights_set":
+      return `Setting lights to ${value} percent.`;
+    case "seats_heat_off":
+      return "Turning seat heat off.";
+    case "seats_adjust":
+      return `Setting seat position to ${value}.`;
+    default:
+      return "Applying settings.";
+  }
+}
+
+/**
+ * VoiceModal (preset keys 1..8 + animated three-line “listening”)
+ * Press 1..8 to trigger:
+ *  1: climate off
+ *  2: climate 28
+ *  3: volume 30
+ *  4: volume off
+ *  5: lights off
+ *  6: lights 50
+ *  7: seat heat off
+ *  8: seat pos 3
+ */
+export default function VoiceModal({ open, onClose, dispatchAction }) {
   const [phase, setPhase] = useState("idle");
-  const [input, setInput] = useState("");
-  const [sending, setSending] = useState(false);
-  const [log, setLog] = useState([]);
-  const inputRef = useRef(null);
-  const chatEndRef = useRef(null);
+  const [displayWords, setDisplayWords] = useState([]); // animated heard words
+  const [hintPulse, setHintPulse] = useState(false);
+  const wordsTimer = useRef(null);
 
-  useEffect(() => {
-    if (chatEndRef.current) {
-      chatEndRef.current.scrollIntoView({ behavior: "smooth" });
-    }
-  }, [log]);
+  // Presets map
+  const PRESETS = useRef({
+    1: {
+      text: 'lights off and "set climate off"',
+      action: "climate_turn_off",
+      value: null,
+    },
+    2: {
+      text: "set climate to 28",
+      action: "climate_set_temperature",
+      value: 28,
+    },
+    3: {
+      text: "set volume to 30",
+      action: "infotainment_set_volume",
+      value: 30,
+    },
+    4: { text: "set volume to 0", action: "infotainment_set_volume", value: 0 },
+    5: { text: "lights off", action: "lights_turn_off", value: null },
+    6: { text: "set lighting to 50", action: "lights_set", value: 50 },
+    7: { text: "seat heat off", action: "seats_heat_off", value: null },
+    8: { text: "set seat position to 3", action: "seats_adjust", value: 3 },
+  }).current;
 
+  // Open/close lifecycle
   useEffect(() => {
     if (open) {
       setPhase("listening");
-      setLog([]);
-      setInput("");
-      setTimeout(() => inputRef.current?.focus(), 100);
+      setDisplayWords([]);
+      setHintPulse(true);
+      const t = setTimeout(() => setHintPulse(false), 1800);
+      return () => clearTimeout(t);
     } else {
-      try {
-        window.speechSynthesis?.cancel();
-      } catch {}
       setPhase("idle");
+      setDisplayWords([]);
+      if (wordsTimer.current) {
+        clearInterval(wordsTimer.current);
+        wordsTimer.current = null;
+      }
     }
   }, [open]);
 
-  const speak = (text) => {
-    try {
-      const utterance = new SpeechSynthesisUtterance(text);
-      utterance.rate = 1;
-      utterance.pitch = 1;
-      utterance.lang = "en-US";
-      window.speechSynthesis?.speak(utterance);
-    } catch (error) {
-      console.log("Speech synthesis not available");
-    }
-  };
-
-  const parseCommand = (text) => {
-    const s = text.toLowerCase().trim();
-
-    const volumeMatch = s.match(/(?:set\s+)?volume\s*(?:to\s+)?(\d+)/);
-    if (volumeMatch) {
-      const vol = Math.min(100, Math.max(0, parseInt(volumeMatch[1])));
-      return {
-        action: "media_set_volume",
-        value: vol,
-        response: `Setting volume to ${vol}%`,
-      };
-    }
-    if (s.includes("volume up") || s.includes("turn up")) {
-      return {
-        action: "media_volume_up",
-        value: 10,
-        response: "Turning volume up",
-      };
-    }
-    if (s.includes("volume down") || s.includes("turn down")) {
-      return {
-        action: "media_volume_down",
-        value: 10,
-        response: "Turning volume down",
-      };
-    }
-
-    const tempMatch = s.match(/(?:set\s+)?temperature\s*(?:to\s+)?(\d+)/);
-    if (tempMatch) {
-      const temp = Math.min(30, Math.max(16, parseInt(tempMatch[1])));
-      return {
-        action: "climate_set_temperature",
-        value: temp,
-        response: `Setting temperature to ${temp}°C`,
-      };
-    }
-    if (
-      s.includes("warmer") ||
-      s.includes("heat up") ||
-      s.includes("temperature up")
-    ) {
-      return {
-        action: "climate_increase",
-        value: 2,
-        response: "Increasing temperature",
-      };
-    }
-    if (
-      s.includes("cooler") ||
-      s.includes("cool down") ||
-      s.includes("temperature down")
-    ) {
-      return {
-        action: "climate_decrease",
-        value: 2,
-        response: "Decreasing temperature",
-      };
-    }
-
-    if (s.includes("turn on") && s.includes("climate")) {
-      return {
-        action: "climate_turn_on",
-        value: null,
-        response: "Turning on climate control",
-      };
-    }
-    if (s.includes("turn off") && s.includes("climate")) {
-      return {
-        action: "climate_turn_off",
-        value: null,
-        response: "Turning off climate control",
-      };
-    }
-    if (s.includes("turn on") && (s.includes("music") || s.includes("media"))) {
-      return {
-        action: "media_turn_on",
-        value: null,
-        response: "Starting music",
-      };
-    }
-    if (
-      s.includes("turn off") &&
-      (s.includes("music") || s.includes("media"))
-    ) {
-      return {
-        action: "media_turn_off",
-        value: null,
-        response: "Stopping music",
-      };
-    }
-    if (s.includes("turn on") && s.includes("lights")) {
-      return {
-        action: "lights_turn_on",
-        value: null,
-        response: "Turning on lights",
-      };
-    }
-    if (s.includes("turn off") && s.includes("lights")) {
-      return {
-        action: "lights_turn_off",
-        value: null,
-        response: "Turning off lights",
-      };
-    }
-
-    const seatMatch = s.match(
-      /(?:set\s+)?seat\s*(?:position\s*)?(?:to\s+)?(\d+)/
-    );
-    if (seatMatch) {
-      const pos = Math.min(5, Math.max(1, parseInt(seatMatch[1])));
-      return {
-        action: "seats_adjust",
-        value: pos,
-        response: `Adjusting seat to position ${pos}`,
-      };
-    }
-    if (s.includes("seat") && (s.includes("heat") || s.includes("heating"))) {
-      if (s.includes("on") || s.includes("start")) {
-        return {
-          action: "seats_heat_on",
-          value: null,
-          response: "Turning on seat heating",
-        };
-      }
-      if (s.includes("off") || s.includes("stop")) {
-        return {
-          action: "seats_heat_off",
-          value: null,
-          response: "Turning off seat heating",
-        };
-      }
-    }
-
-    return {
-      action: null,
-      value: null,
-      response:
-        "I didn't understand that command. Try something like 'set temperature to 22' or 'turn up volume'.",
-    };
-  };
-
-  const handleSend = () => {
-    if (!input.trim() || sending) return;
-
-    setSending(true);
-    setPhase("processing");
-
-    const userMessage = { role: "user", text: input.trim(), id: Date.now() };
-    setLog((prevLog) => [...prevLog, userMessage]);
-
-    const currentInput = input.trim();
-    setInput("");
-
-    setTimeout(() => {
-      const command = parseCommand(currentInput);
-
-      if (!command.action) {
-        const aiMessage = {
-          role: "ai",
-          text: command.response,
-          id: Date.now() + Math.random(),
-        };
-        setLog((prevLog) => [...prevLog, aiMessage]);
-        speak(command.response);
-        setPhase("listening");
-        setSending(false);
+  // Key handler (1..8 + Esc)
+  const handleKey = useCallback(
+    (e) => {
+      if (!open) return;
+      if (e.key === "Escape") {
+        onClose?.();
         return;
       }
+      if (!/^[1-8]$/.test(e.key)) return;
 
-      const aiMessage = {
-        role: "ai",
-        text: command.response,
-        id: Date.now() + Math.random(),
-      };
-      setLog((prevLog) => [...prevLog, aiMessage]);
-      speak(command.response);
+      const preset = PRESETS[e.key];
+      if (!preset) return;
 
-      try {
-        dispatchAction?.(command.action, command.value);
-      } catch (error) {
-        console.error("Action dispatch failed:", error);
-      }
+      // start typewriter “heard” animation
+      setPhase("processing");
+      setDisplayWords([]);
+      const words = preset.text.split(" ");
+      let i = 0;
 
-      if (onNavigate && command.page) {
-        setTimeout(() => onNavigate(command.page), 400);
-      }
+      wordsTimer.current && clearInterval(wordsTimer.current);
+      wordsTimer.current = setInterval(() => {
+        setDisplayWords((prev) => [...prev, words[i]]);
+        i += 1;
+        if (i >= words.length) {
+          clearInterval(wordsTimer.current);
+          wordsTimer.current = null;
 
-      setPhase("listening");
-      setSending(false);
-    }, 300);
-  };
+          // Speak the action
+          const say = spokenFromAction(preset.action, preset.value);
+          speak(say);
+
+          // short pause so the user hears it, then close & dispatch
+          setTimeout(() => {
+            onClose?.();
+            setTimeout(() => {
+              dispatchAction?.(preset.action, preset.value);
+            }, 300);
+          }, 600);
+        }
+      }, 140); // slower per your last tweak
+    },
+    [open, onClose, dispatchAction, PRESETS]
+  );
 
   useEffect(() => {
     if (!open) return;
+    window.addEventListener("keydown", handleKey);
+    return () => window.removeEventListener("keydown", handleKey);
+  }, [open, handleKey]);
 
-    const handleKeydown = (e) => {
-      if (e.key === "Escape") {
-        onClose?.();
-      } else if (e.key === "Enter" && !e.shiftKey) {
-        e.preventDefault();
-        handleSend();
-      }
+  // Three stacked listening “lines”
+  const ListeningLines = () => {
+    const baseLineStyle = {
+      borderColor: "rgba(255,255,255,0.22)",
+      background: "rgba(255,255,255,0.06)",
+      color: "rgba(255,255,255,0.8)",
+      backdropFilter: "blur(4px)",
     };
 
-    window.addEventListener("keydown", handleKeydown);
-    return () => window.removeEventListener("keydown", handleKeydown);
-  }, [open, input, sending]);
-
-  const VoiceWave = () => (
-    <div className="flex items-center justify-center gap-1 h-16">
-      {[...Array(5)].map((_, i) => (
-        <motion.div
-          key={i}
-          className="w-1 rounded-full"
-          style={{ backgroundColor: COLORS.accent }}
-          animate={
-            phase === "listening"
-              ? { height: ["4px", "32px", "4px"], opacity: [0.4, 1, 0.4] }
-              : phase === "processing"
-              ? { height: ["8px", "20px", "8px"], opacity: [0.6, 0.9, 0.6] }
-              : { height: "4px", opacity: 0.3 }
-          }
-          transition={{
-            duration: phase === "listening" ? 1.5 : 1,
-            repeat:
-              phase === "listening" || phase === "processing" ? Infinity : 0,
-            delay: i * 0.1,
-            ease: "easeInOut",
-          }}
-        />
-      ))}
-    </div>
-  );
-
-  const ChatBubble = ({ message, isUser }) => (
-    <motion.div
-      className={`flex w-full ${isUser ? "justify-end" : "justify-start"} mb-3`}
-      initial={{ opacity: 0, y: 14, scale: 0.98 }}
-      animate={{ opacity: 1, y: 0, scale: 1 }}
-      transition={{
-        type: "spring",
-        stiffness: 240,
-        damping: 22,
-        duration: 0.35,
-      }}
-    >
-      <div
-        className={`max-w-[72%] px-4 py-3 rounded-2xl shadow-md ${
-          isUser
-            ? "rounded-br-lg text-white"
-            : "rounded-bl-lg text-gray-900 bg-white border border-gray-200"
-        }`}
-        style={{ backgroundColor: isUser ? COLORS.accent : undefined }}
-      >
-        <p className="text-[15px] leading-6 font-medium antialiased">
-          {message.text}
-        </p>
+    return (
+      <div className="space-y-2">
+        {/* Line 1: shows heard words */}
+        <div
+          className="px-4 py-2 rounded-xl border text-sm leading-6 min-h-[40px] flex items-center"
+          style={baseLineStyle}
+        >
+          {displayWords.length === 0 ? (
+            <span
+              className={`transition ${
+                hintPulse ? "opacity-100" : "opacity-80"
+              }`}
+            >
+              Try: <b>"lights low"</b>, <b>"lights high"</b>,{" "}
+              <b>"lights off"</b>, <b>"set volume to 50"</b>,{" "}
+              <b>"set seat to 3"</b>
+            </span>
+          ) : (
+            <span>
+              {displayWords.join(" ")}
+              <span className="opacity-60"> ▌</span>
+            </span>
+          )}
+        </div>
       </div>
-    </motion.div>
-  );
+    );
+  };
 
   return (
-    <AnimatePresence mode="wait">
+    <AnimatePresence>
       {open && (
         <motion.div
           className="fixed inset-0 z-50 flex"
           initial={{ opacity: 0 }}
           animate={{ opacity: 1 }}
           exit={{ opacity: 0 }}
-          transition={{ duration: 0.25 }}
+          transition={{ duration: 0.2 }}
         >
+          {/* Backdrop */}
           <div
             className="absolute inset-0"
             style={{
@@ -341,14 +216,10 @@ export default function VoiceModal({
               backdropFilter: "blur(4px)",
               WebkitBackdropFilter: "blur(4px)",
             }}
-            onClick={() => {
-              try {
-                window.speechSynthesis?.cancel();
-              } catch {}
-              onClose?.();
-            }}
+            onClick={() => onClose?.()}
           />
 
+          {/* Bottom sheet 30% */}
           <div className="relative flex flex-col justify-end h-full w-full">
             <motion.div
               className={`${SHEET_HEIGHT} w-full ${SHEET_MAX_WIDTH} mx-auto flex flex-col backdrop-blur-sm border border-white/10 rounded-t-3xl items-center shadow-2xl`}
@@ -360,15 +231,11 @@ export default function VoiceModal({
                 type: "spring",
                 stiffness: 300,
                 damping: 30,
-                duration: 0.35,
+                duration: 0.3,
               }}
             >
-              <motion.div
-                className="flex justify-between items-center p-6 border-b border-white/10 w-full"
-                initial={{ y: -16, opacity: 0 }}
-                animate={{ y: 0, opacity: 1 }}
-                transition={{ delay: 0.08 }}
-              >
+              {/* Header */}
+              <div className="flex justify-between items-center p-5 border-b border-white/10 w-full">
                 <div className="flex items-center gap-3 mx-auto">
                   <div
                     className="w-8 h-8 rounded-full flex items-center justify-center"
@@ -376,106 +243,30 @@ export default function VoiceModal({
                   >
                     <Mic size={16} className="text-white" />
                   </div>
-                  <div>
-                    <p className="text-white/80 font-bold text-m">
-                      {phase === "listening"
-                        ? "Listening..."
-                        : phase === "processing"
-                        ? "Thinking..."
-                        : "Ready"}
-                    </p>
-                  </div>
+                  <p className="text-white/80 font-bold text-m">
+                    {phase === "listening"
+                      ? "Listening..."
+                      : phase === "processing"
+                      ? "Thinking..."
+                      : "Ready"}
+                  </p>
                 </div>
-
                 <button
-                  onClick={() => {
-                    try {
-                      window.speechSynthesis?.cancel();
-                    } catch {}
-                    onClose?.();
-                  }}
-                  className="absolute top-6 right-6 w-8 h-8 rounded-full bg-white/20 backdrop-blur-sm flex items-center justify-center hover:bg-white/30 transition-colors"
+                  onClick={() => onClose?.()}
+                  className="absolute top-5 right-5 w-8 h-8 rounded-full bg-white/20 backdrop-blur-sm flex items-center justify-center hover:bg-white/30 transition-colors"
                 >
                   <X size={16} className="text-white" />
                 </button>
-              </motion.div>
+              </div>
 
-              <motion.div
-                className="px-6 border-b border-white/10 w-full flex justify-center"
-                initial={{ scale: 0.96, opacity: 0 }}
-                animate={{ scale: 1, opacity: 1 }}
-                transition={{ delay: 0.16 }}
-              >
-                <VoiceWave />
-              </motion.div>
-
-              <div className="flex-1 px-5 py-4 overflow-hidden w-full flex justify-center">
-                <div
-                  className="h-full overflow-y-auto w-full"
-                  style={{ maxWidth: CHAT_MAX_WIDTH_PX }}
-                >
-                  {log.length === 0 ? (
-                    <motion.div
-                      className="text-center py-8"
-                      initial={{ opacity: 0 }}
-                      animate={{ opacity: 1 }}
-                      transition={{ delay: 0.2 }}
-                    >
-                      <p className="text-white/80 text-sm leading-relaxed">
-                        Try commands like:
-                        <br />
-                        "Set temperature to 22"
-                        <br />
-                        "Turn up the volume"
-                        <br />
-                        "Turn on the lights"
-                      </p>
-                    </motion.div>
-                  ) : (
-                    <div className="space-y-2">
-                      {log.map((message) => (
-                        <ChatBubble
-                          key={message.id}
-                          message={message}
-                          isUser={message.role === "user"}
-                        />
-                      ))}
-                      <div ref={chatEndRef} />
-                    </div>
-                  )}
+              {/* Content */}
+              <div className="px-6 py-5 w-full flex justify-center">
+                <div style={{ maxWidth: CHAT_MAX_WIDTH_PX }} className="w-full">
+                  <ListeningLines />
                 </div>
               </div>
 
-              <motion.div
-                className="p-5 border-t border-white/10 w-full flex justify-center"
-                initial={{ y: 14, opacity: 0 }}
-                animate={{ y: 0, opacity: 1 }}
-                transition={{ delay: 0.24 }}
-              >
-                <div
-                  className="flex gap-3 w-full"
-                  style={{ maxWidth: CHAT_MAX_WIDTH_PX }}
-                >
-                  <input
-                    ref={inputRef}
-                    value={input}
-                    onChange={(e) => setInput(e.target.value)}
-                    placeholder="Type your command..."
-                    className="flex-1 px-4 py-3 rounded-xl bg-white text-[#192B37] placeholder-gray-500 border border-gray-200 focus:outline-none focus:ring-2 focus:ring-[#3DD17B] focus:border-transparent transition-all duration-200"
-                    disabled={sending}
-                  />
-                  <motion.button
-                    onClick={handleSend}
-                    disabled={sending || !input.trim()}
-                    className="px-5 py-3 rounded-xl font-semibold text-white transition-all duration-200 disabled:opacity-50"
-                    style={{ backgroundColor: COLORS.accent }}
-                    whileHover={!sending && input.trim() ? { scale: 1.03 } : {}}
-                    whileTap={!sending && input.trim() ? { scale: 0.97 } : {}}
-                  >
-                    Send
-                  </motion.button>
-                </div>
-              </motion.div>
+              <div className="h-1" />
             </motion.div>
           </div>
         </motion.div>
