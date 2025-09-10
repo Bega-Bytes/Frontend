@@ -1,6 +1,7 @@
 import React, { useEffect, useRef, useState } from "react";
 import { AnimatePresence, motion } from "framer-motion";
-import { Mic, X } from "lucide-react";
+import { Mic, X, TestTube, Shuffle } from "lucide-react";
+import { SpeechSimulation } from "../services/speechSimulation"
 
 // Dava Brand Colors
 const COLORS = {
@@ -13,10 +14,65 @@ const COLORS = {
   textSecondary: "#A3AAAF",
 };
 
+const speechSim = new SpeechSimulation();
+
+// Test commands for quick testing
+const testCommands = [
+    "Set temperature to 24 degrees",
+    "Turn up the volume",
+    "Turn on the lights", 
+    "Heat the seats",
+    "Play some music",
+    "Make it cooler",
+    "Dim the lights",
+    "Stop the music",
+    "Volume to 50",
+    "Turn off climate control",
+    "Brighten the lights",
+    "Set temperature to 18"
+];
+
 // --- TUNABLE UI KNOBS ---
 const CHAT_MAX_WIDTH_PX = 560;
 const SHEET_MAX_WIDTH = "max-w-3xl";
 const SHEET_HEIGHT = "h-[60%]";
+
+const QuickTestButtons = ({ onTestCommand, onRandomCommand, onCorruptedCommand }) => (
+    <div className="border-t border-white/10 p-4">
+        <div className="flex justify-between items-center mb-3">
+            <p className="text-white/70 text-sm font-medium">Quick Test Commands:</p>
+            <div className="flex gap-2">
+                <button
+                    onClick={onRandomCommand}
+                    className="flex items-center gap-1 text-xs px-3 py-1.5 rounded-lg bg-purple-500/20 text-purple-200 hover:bg-purple-500/30 transition-colors"
+                >
+                    <Shuffle size={12} />
+                    Random
+                </button>
+                <button
+                    onClick={onCorruptedCommand}
+                    className="flex items-center gap-1 text-xs px-3 py-1.5 rounded-lg bg-orange-500/20 text-orange-200 hover:bg-orange-500/30 transition-colors"
+                >
+                    <TestTube size={12} />
+                    Corrupted
+                </button>
+            </div>
+        </div>
+        
+        <div className="grid grid-cols-2 gap-2">
+            {testCommands.slice(0, 8).map((cmd, i) => (
+                <button
+                    key={i}
+                    onClick={() => onTestCommand(cmd)}
+                    className="text-xs px-3 py-2 rounded-lg bg-white/10 text-white/80 hover:bg-white/20 transition-colors text-left truncate"
+                    title={cmd}
+                >
+                    {cmd}
+                </button>
+            ))}
+        </div>
+    </div>
+);
 
 export default function VoiceModal({ open, onClose, dispatchAction, onNavigate }) {
   const [phase, setPhase] = useState("idle");
@@ -58,73 +114,66 @@ export default function VoiceModal({ open, onClose, dispatchAction, onNavigate }
     }
   };
 
-  const parseCommand = (text) => {
-    const s = text.toLowerCase().trim();
-
-    const volumeMatch = s.match(/(?:set\s+)?volume\s*(?:to\s+)?(\d+)/);
-    if (volumeMatch) {
-      const vol = Math.min(100, Math.max(0, parseInt(volumeMatch[1])));
-      return { action: "media_set_volume", value: vol, response: `Setting volume to ${vol}%` };
+  const parseCommand = async (text) => {
+    try {
+        console.log('🎯 Parsing command:', text);
+        
+        // Send to backend API (replace with your actual backend URL)
+        const backendUrl = import.meta.env.VITE_BACKEND_URL || 'http://localhost:8000';
+        const response = await fetch(`${backendUrl}/api/nlp/process-voice`, {
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/json',
+            },
+            body: JSON.stringify({
+                text: text,
+                timestamp: Date.now()
+            })
+        });
+        
+        if (!response.ok) {
+            throw new Error(`Backend error: ${response.status}`);
+        }
+        
+        const result = await response.json();
+        console.log('🎯 Backend result:', result);
+        
+        if (result.confidence > 0.6) {
+            return {
+                action: result.action,
+                value: result.parameters,
+                response: `✅ ${generateResponseText(result.action, result.parameters)} (${(result.confidence * 100).toFixed(0)}% confident)`,
+                confidence: result.confidence,
+                success: true
+            };
+        } else {
+            return {
+                action: null,
+                response: `🤔 I'm not sure about that command (${(result.confidence * 100).toFixed(0)}% confidence). Could you try rephrasing?`,
+                confidence: result.confidence,
+                success: false
+            };
+        }
+    } catch (error) {
+        console.error('❌ Voice parsing error:', error);
+        
+        // Fallback to local parsing for development
+        return parseCommandLocal(text);
     }
-    if (s.includes("volume up") || s.includes("turn up")) {
-      return { action: "media_volume_up", value: 10, response: "Turning volume up" };
-    }
-    if (s.includes("volume down") || s.includes("turn down")) {
-      return { action: "media_volume_down", value: 10, response: "Turning volume down" };
-    }
-
-    const tempMatch = s.match(/(?:set\s+)?temperature\s*(?:to\s+)?(\d+)/);
-    if (tempMatch) {
-      const temp = Math.min(30, Math.max(16, parseInt(tempMatch[1])));
-      return { action: "climate_set_temperature", value: temp, response: `Setting temperature to ${temp}°C` };
-    }
-    if (s.includes("warmer") || s.includes("heat up") || s.includes("temperature up")) {
-      return { action: "climate_increase", value: 2, response: "Increasing temperature" };
-    }
-    if (s.includes("cooler") || s.includes("cool down") || s.includes("temperature down")) {
-      return { action: "climate_decrease", value: 2, response: "Decreasing temperature" };
-    }
-
-    if (s.includes("turn on") && s.includes("climate")) {
-      return { action: "climate_turn_on", value: null, response: "Turning on climate control" };
-    }
-    if (s.includes("turn off") && s.includes("climate")) {
-      return { action: "climate_turn_off", value: null, response: "Turning off climate control" };
-    }
-    if (s.includes("turn on") && (s.includes("music") || s.includes("media"))) {
-      return { action: "media_turn_on", value: null, response: "Starting music" };
-    }
-    if (s.includes("turn off") && (s.includes("music") || s.includes("media"))) {
-      return { action: "media_turn_off", value: null, response: "Stopping music" };
-    }
-    if (s.includes("turn on") && s.includes("lights")) {
-      return { action: "lights_turn_on", value: null, response: "Turning on lights" };
-    }
-    if (s.includes("turn off") && s.includes("lights")) {
-      return { action: "lights_turn_off", value: null, response: "Turning off lights" };
-    }
-
-    const seatMatch = s.match(/(?:set\s+)?seat\s*(?:position\s*)?(?:to\s+)?(\d+)/);
-    if (seatMatch) {
-      const pos = Math.min(5, Math.max(1, parseInt(seatMatch[1])));
-      return { action: "seats_adjust", value: pos, response: `Adjusting seat to position ${pos}` };
-    }
-    if (s.includes("seat") && (s.includes("heat") || s.includes("heating"))) {
-      if (s.includes("on") || s.includes("start")) {
-        return { action: "seats_heat_on", value: null, response: "Turning on seat heating" };
-      }
-      if (s.includes("off") || s.includes("stop")) {
-        return { action: "seats_heat_off", value: null, response: "Turning off seat heating" };
-      }
-    }
-
-    return {
-      action: null,
-      value: null,
-      response:
-        "I didn't understand that command. Try something like 'set temperature to 22' or 'turn up volume'.",
-    };
   };
+
+  function generateResponseText(action, parameters) {
+      const responses = {
+          'climate_set_temperature': `Setting temperature to ${parameters.temperature}°C`,
+          'climate_turn_on': 'Turning on climate control',
+          'infotainment_set_volume': `Setting volume to ${parameters.volume}%`,
+          'lights_turn_on': 'Turning on interior lights',
+          'seats_heat_on': 'Activating seat heating',
+          // ... more responses
+      };
+      
+      return responses[action] || 'Command executed successfully';
+  }
 
   const handleSend = () => {
     if (!input.trim() || sending) return;
