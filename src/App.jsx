@@ -17,7 +17,7 @@ const COLORS = {
   textSecondary: "#A3AAAF",
   cardAccents: {
     climate: "#3DD17B",
-    music: "#F99C11",
+    music: "#a904a9ff",
     lighting: "#5899C4",
     seats: "#FF5641",
   },
@@ -33,11 +33,13 @@ function useLocal(key, initial) {
       return initial;
     }
   });
+
   useEffect(() => {
     try {
       localStorage.setItem(key, JSON.stringify(val));
     } catch {}
   }, [key, val]);
+
   return [val, setVal];
 }
 
@@ -47,6 +49,7 @@ function tweenNumber({ from, to, ms = 500, step, done }) {
   const d = Math.max(1, ms);
   const delta = to - from;
   let raf;
+
   const tick = (t) => {
     const k = Math.min(1, (t - start) / d);
     const eased = 1 - Math.pow(1 - k, 3);
@@ -55,6 +58,7 @@ function tweenNumber({ from, to, ms = 500, step, done }) {
     if (k < 1) raf = requestAnimationFrame(tick);
     else done?.();
   };
+
   raf = requestAnimationFrame(tick);
   return () => cancelAnimationFrame(raf);
 }
@@ -62,12 +66,15 @@ function tweenNumber({ from, to, ms = 500, step, done }) {
 /* ---------- Clock ---------- */
 const Clock = React.memo(function Clock() {
   const [now, setNow] = useState(() => new Date());
+
   useEffect(() => {
     const t = setInterval(() => setNow(new Date()), 1000);
     return () => clearInterval(t);
   }, []);
+
   const hh = String(now.getHours()).padStart(2, "0");
   const mm = String(now.getMinutes()).padStart(2, "0");
+
   return (
     <motion.div
       initial={false}
@@ -97,6 +104,7 @@ const ModernCard = React.memo(function ModernCard({
     }),
     [active, accentColor]
   );
+
   const iconStyle = useMemo(
     () => ({
       backgroundColor: active ? accentColor : `${accentColor}15`,
@@ -104,6 +112,7 @@ const ModernCard = React.memo(function ModernCard({
     }),
     [active, accentColor]
   );
+
   const hoverOverlayStyle = useMemo(
     () => ({
       background: `linear-gradient(135deg, ${accentColor}20 0%, ${accentColor}10 100%)`,
@@ -123,6 +132,7 @@ const ModernCard = React.memo(function ModernCard({
         className="absolute inset-0 opacity-0 group-hover:opacity-5 transition-opacity duration-500"
         style={hoverOverlayStyle}
       />
+
       <div className="flex items-start justify-between mb-6 relative z-10">
         <div
           className="w-16 h-16 rounded-2xl flex items-center justify-center shadow-sm transition-all duration-500 group-hover:scale-110"
@@ -146,11 +156,9 @@ const ModernCard = React.memo(function ModernCard({
         >
           {title}
         </h3>
-
         <p className="text-sm mb-4" style={{ color: COLORS.textSecondary }}>
           {description}
         </p>
-
         <div className="flex items-end gap-2">
           <span
             className="text-3xl font-bold transition-all duration-500"
@@ -169,19 +177,25 @@ const ModernCard = React.memo(function ModernCard({
 
       <div
         className="absolute bottom-0 left-0 h-1 transition-all duration-500"
-        style={{ width: active ? "100%" : "0%", backgroundColor: accentColor }}
+        style={{
+          width: active ? "100%" : "0%",
+          backgroundColor: accentColor,
+        }}
       />
     </motion.button>
   );
 });
 
-/* ---------- PRETTIER preset notification (AI-style sheet) ---------- */
-const PresetPrompt = React.memo(function PresetPrompt({
+/* ---------- AI Recommendation Notification ---------- */
+const AIRecommendationPrompt = React.memo(function AIRecommendationPrompt({
   open,
   onClose,
   onAccept,
+  recommendations = [],
 }) {
-  if (!open) return null;
+  if (!open || !recommendations.length) return null;
+
+  const recommendation = recommendations[0]; // Show first recommendation
 
   return (
     <div className="fixed inset-0 z-[70] flex">
@@ -195,16 +209,15 @@ const PresetPrompt = React.memo(function PresetPrompt({
         }}
         onClick={onClose}
       />
+
       {/* Bottom sheet card */}
       <div className="relative flex flex-col justify-end h-full w-full">
         <div
-          className="w-full max-w-3xl mx-auto h-[60%] rounded-t-3xl overflow-hidden border shadow-2xl"
+          className="w-full max-w-3xl mx-auto h-[50%] rounded-t-3xl overflow-hidden border shadow-2xl"
           style={{
-            background:
-              "linear-gradient(180deg, rgba(255,255,255,0.9) 0%, rgba(245,247,248,0.85) 100%)",
+            background: "linear-gradient(180deg, rgba(255,255,255,0.9) 0%, rgba(245,247,248,0.85) 100%)",
             borderColor: "rgba(25,43,55,0.12)",
-            boxShadow:
-              "0 24px 60px rgba(25,43,55,0.28), inset 0 1px 0 rgba(255,255,255,0.6)",
+            boxShadow: "0 24px 60px rgba(25,43,55,0.28), inset 0 1px 0 rgba(255,255,255,0.6)",
           }}
         >
           {/* Header */}
@@ -212,15 +225,14 @@ const PresetPrompt = React.memo(function PresetPrompt({
             className="relative p-6 border-b flex items-center justify-center"
             style={{
               borderColor: "rgba(25,43,55,0.1)",
-              background:
-                "linear-gradient(135deg, rgba(61,209,123,0.12) 0%, rgba(88,153,196,0.12) 100%)",
+              background: "linear-gradient(135deg, rgba(61,209,123,0.12) 0%, rgba(88,153,196,0.12) 100%)",
             }}
           >
             <div
               className="text-lg font-extrabold tracking-tight"
               style={{ color: COLORS.primary }}
             >
-              Suggested preset
+              AI Recommendation
             </div>
             <button
               onClick={onClose}
@@ -242,87 +254,10 @@ const PresetPrompt = React.memo(function PresetPrompt({
                 }}
               >
                 <div
-                  className="text-[17px] font-semibold mb-2"
+                  className="text-[17px] font-semibold mb-4"
                   style={{ color: COLORS.primary }}
                 >
-                  I noticed that around this time you prefer these settings.
-                </div>
-                <div
-                  className="text-sm mb-4"
-                  style={{ color: COLORS.textSecondary }}
-                >
-                  Would you like to apply them now?
-                </div>
-
-                <div className="grid grid-cols-2 gap-3 mb-6">
-                  <div
-                    className="rounded-xl border p-3"
-                    style={{ borderColor: "rgba(25,43,55,0.08)" }}
-                  >
-                    <div
-                      className="text-xs mb-1"
-                      style={{ color: COLORS.gray }}
-                    >
-                      Climate
-                    </div>
-                    <div
-                      className="text-[15px] font-semibold"
-                      style={{ color: COLORS.primary }}
-                    >
-                      30°C
-                    </div>
-                  </div>
-                  <div
-                    className="rounded-xl border p-3"
-                    style={{ borderColor: "rgba(25,43,55,0.08)" }}
-                  >
-                    <div
-                      className="text-xs mb-1"
-                      style={{ color: COLORS.gray }}
-                    >
-                      Music volume
-                    </div>
-                    <div
-                      className="text-[15px] font-semibold"
-                      style={{ color: COLORS.primary }}
-                    >
-                      70%
-                    </div>
-                  </div>
-                  <div
-                    className="rounded-xl border p-3"
-                    style={{ borderColor: "rgba(25,43,55,0.08)" }}
-                  >
-                    <div
-                      className="text-xs mb-1"
-                      style={{ color: COLORS.gray }}
-                    >
-                      Lighting
-                    </div>
-                    <div
-                      className="text-[15px] font-semibold"
-                      style={{ color: COLORS.primary }}
-                    >
-                      High (100%)
-                    </div>
-                  </div>
-                  <div
-                    className="rounded-xl border p-3"
-                    style={{ borderColor: "rgba(25,43,55,0.08)" }}
-                  >
-                    <div
-                      className="text-xs mb-1"
-                      style={{ color: COLORS.gray }}
-                    >
-                      Seats
-                    </div>
-                    <div
-                      className="text-[15px] font-semibold"
-                      style={{ color: COLORS.primary }}
-                    >
-                      Heat On, Pos 2
-                    </div>
-                  </div>
+                  {recommendation.message}
                 </div>
 
                 <div className="flex justify-end gap-3">
@@ -335,17 +270,17 @@ const PresetPrompt = React.memo(function PresetPrompt({
                       background: "#fff",
                     }}
                   >
-                    Not now
+                    No
                   </button>
                   <button
                     onClick={() => {
                       onClose();
-                      onAccept?.();
+                      onAccept?.(recommendation);
                     }}
                     className="px-5 py-2.5 rounded-xl font-semibold text-white shadow hover:shadow-md transition"
                     style={{ background: COLORS.accent }}
                   >
-                    Apply preset
+                    Yes
                   </button>
                 </div>
               </div>
@@ -356,8 +291,7 @@ const PresetPrompt = React.memo(function PresetPrompt({
           <div
             className="h-6 pointer-events-none"
             style={{
-              background:
-                "linear-gradient(to top, rgba(255,255,255,0.9), rgba(255,255,255,0))",
+              background: "linear-gradient(to top, rgba(255,255,255,0.9), rgba(255,255,255,0))",
             }}
           />
         </div>
@@ -377,6 +311,25 @@ export default function App() {
   const [aiOpen, setAiOpen] = useState(false);
   const closeSheet = () => setSheet({ open: false, kind: null, title: "" });
   const openSheet = (kind, title) => setSheet({ open: true, kind, title });
+// Kill-switch: disable automatic popups triggered by commands/back-end
+const AUTO_SHEET_POPUP = false;
+
+// Use this for programmatic opens (command handlers, backend updates)
+const autoOpenSheet = (kind, title) => {
+  if (!AUTO_SHEET_POPUP) return;
+  openSheet(kind, title);
+};
+
+
+  // AI Recommendations
+  const [aiRecommendation, setAiRecommendation] = useState({
+    open: false,
+    recommendations: [],
+  });
+
+  // MQTT Connection
+  const mqttClient = useRef(null);
+  const mqttWs = useRef(null);
 
   // Per-field tweeners
   const tweeners = useRef({});
@@ -384,7 +337,8 @@ export default function App() {
     if (tweeners.current[key]) tweeners.current[key]();
     tweeners.current[key] = tweenNumber(args);
   };
-  // 👇 NEW: delayed tween starter (to begin 1s later)
+
+  // delayed tween starter (to begin 1s later)
   const startTweenKeyDelayed = (key, args, delayMs = 1000) => {
     if (tweeners.current[key]) tweeners.current[key]();
     const launch = () => {
@@ -394,26 +348,125 @@ export default function App() {
     else launch();
   };
 
+  // MQTT over WebSocket Connection
+  useEffect(() => {
+    const connectMQTTWebSocket = () => {
+      try {
+        // Connect to MQTT broker via WebSocket (you'll need a WebSocket-enabled MQTT broker)
+        // For testing, we'll simulate MQTT messages
+        
+        // Simulate MQTT connection for AI recommendations
+        const simulateAIRecommendations = () => {
+          const interval = setInterval(() => {
+            // Simulate receiving AI recommendations randomly
+            if (Math.random() > 0.995) { // 0.5% chance every second for demo
+              const mockRecommendations = [
+                {
+                  action: 'climate_set_temperature',
+                  message: 'Hello! Based on your preferences, would you like me to set the temperature to 24°C?',
+                  value: 24
+                },
+                {
+                  action: 'infotainment_play',
+                  message: 'Hi! I noticed you usually prefer this, so would you like to listen to some music?',
+                  value: null
+                },
+                {
+                  action: 'lights_turn_on',
+                  message: "It's getting dark, would you like me to turn on the ambient lights for a cozy atmosphere?",
+                  value: null
+                },
+                {
+                  action: 'seats_heat_on',
+                  message: 'Hello! From your driving patterns, would you like me to warm up your seat?',
+                  value: null
+                },
+                {
+                  action: 'infotainment_set_volume',
+                  message: 'Hi again! Your typical routine suggests should I adjust the volume to your usual 75%?',
+                  value: 75
+                }
+              ];
+              
+              const randomRec = mockRecommendations[Math.floor(Math.random() * mockRecommendations.length)];
+              setAiRecommendation({
+                open: true,
+                recommendations: [randomRec]
+              });
+            }
+          }, 1000);
+
+          return () => clearInterval(interval);
+        };
+
+        // For real MQTT implementation, replace the simulation with:
+        /*
+        const ws = new WebSocket('ws://localhost:9001'); // MQTT WebSocket port
+        mqttWs.current = ws;
+        
+        ws.onopen = () => {
+          console.log('MQTT WebSocket connected');
+          // Subscribe to vehicle/recommendations topic
+        };
+        
+        ws.onmessage = (event) => {
+          try {
+            const data = JSON.parse(event.data);
+            if (data.type === 'ai_suggestion' && data.recommendations) {
+              setAiRecommendation({
+                open: true,
+                recommendations: data.recommendations
+              });
+            }
+          } catch (error) {
+            console.error('Error parsing MQTT message:', error);
+          }
+        };
+        
+        ws.onclose = () => {
+          console.log('MQTT WebSocket disconnected, attempting reconnect...');
+          setTimeout(connectMQTTWebSocket, 3000);
+        };
+        
+        return () => {
+          if (ws && ws.readyState === WebSocket.OPEN) {
+            ws.close();
+          }
+        };
+        */
+
+        const cleanup = simulateAIRecommendations();
+        return cleanup;
+      } catch (error) {
+        console.error('MQTT connection error:', error);
+        setTimeout(connectMQTTWebSocket, 3000);
+      }
+    };
+
+    const cleanup = connectMQTTWebSocket();
+    return cleanup;
+  }, []);
+
+  // WebSocket connection (keeping existing functionality)
   useEffect(() => {
     const connectWebSocket = () => {
       const ws = new WebSocket('ws://localhost:8000/ws');
-      
+
       ws.onopen = () => {
         console.log('WebSocket connected to backend');
       };
-      
+
       ws.onmessage = (event) => {
         try {
           const message = JSON.parse(event.data);
           console.log('WebSocket message received:', message);
-          
+
           if (message.type === 'state_update' && message.data) {
             const backendState = message.data;
-            
-            // Instead of directly updating state, trigger animations like the original UI
+
             if (backendState.climate && backendState.climate.temperature !== v.climate.temp) {
               const newTemp = backendState.climate.temperature;
-              openSheet("climate", "Climate Control");
+              autoOpenSheet("climate", "Climate Control");
               startTweenKeyDelayed("temp", {
                 from: v.climate.temp,
                 to: newTemp,
@@ -429,10 +482,10 @@ export default function App() {
                   })),
               });
             }
-            
+
             if (backendState.infotainment && backendState.infotainment.volume !== v.media.volume) {
               const newVol = backendState.infotainment.volume;
-              openSheet("music", "Entertainment System");
+              autoOpenSheet("music", "Entertainment System");
               startTweenKeyDelayed("volume", {
                 from: v.media.volume,
                 to: newVol,
@@ -448,10 +501,10 @@ export default function App() {
                   })),
               });
             }
-            
+
             if (backendState.lights && backendState.lights.brightness !== v.lights.brightness) {
               const newBrightness = backendState.lights.brightness;
-              openSheet("lighting", "Interior Lighting");
+              autoOpenSheet("lighting", "Interior Lighting");
               startTweenKeyDelayed("lights", {
                 from: v.lights.brightness,
                 to: newBrightness,
@@ -467,8 +520,7 @@ export default function App() {
                   })),
               });
             }
-            
-            // Handle non-animated updates (like seat heating)
+
             if (backendState.seats) {
               setVehicle(s => ({
                 ...s,
@@ -478,7 +530,7 @@ export default function App() {
                 }
               }));
               if (backendState.seats.driver_heating !== v.seats.heatOn) {
-                openSheet("seats", "Seat Controls");
+                autoOpenSheet("seats", "Seat Controls");
               }
             }
           }
@@ -486,17 +538,16 @@ export default function App() {
           console.error('Error processing WebSocket message:', error);
         }
       };
-      
+
       ws.onclose = () => {
         console.log('WebSocket disconnected, attempting reconnect...');
         setTimeout(connectWebSocket, 3000);
       };
-      
+
       return ws;
     };
-    
+
     const ws = connectWebSocket();
-    
     return () => {
       if (ws && ws.readyState === WebSocket.OPEN) {
         ws.close();
@@ -504,79 +555,27 @@ export default function App() {
     };
   }, []);
 
-  /* ---------- Preset notification ---------- */
-  const [presetPrompt, setPresetPrompt] = useState({
-    open: false,
-    shownCount: 0,
-  });
-  const presetTimers = useRef([]);
+  // Function to send action to MQTT
+  const sendActionToMQTT = (action, value) => {
+    const actionData = {
+      action: action,
+      value: value,
+      timestamp: new Date().toISOString()
+    };
 
-  useEffect(() => {
-    const t1 = setTimeout(() => {
-      setPresetPrompt((p) =>
-        p.shownCount === 0 ? { open: true, shownCount: 1 } : p
-      );
-    }, 200000);
-    const t2 = setTimeout(() => {
-      setPresetPrompt((p) =>
-        p.shownCount === 1 ? { open: true, shownCount: 2 } : p
-      );
-    }, 500000);
-    presetTimers.current = [t1, t2];
-    return () => presetTimers.current.forEach(clearTimeout);
-  }, []);
+    // For real MQTT implementation:
+    /*
+    if (mqttWs.current && mqttWs.current.readyState === WebSocket.OPEN) {
+      const message = {
+        topic: 'vehicle/actions',
+        payload: JSON.stringify(actionData)
+      };
+      mqttWs.current.send(JSON.stringify(message));
+      console.log('Action sent to MQTT:', actionData);
+    }
+    */
 
-  const applyPresetAnimated = () => {
-    // Climate temp to 30
-    startTweenKeyDelayed("temp", {
-      from: v.climate.temp,
-      to: 30,
-      ms: 500,
-      step: (val) =>
-        setVehicle((s) => ({
-          ...s,
-          climate: {
-            ...normalizeVehicle(s).climate,
-            on: true,
-            temp: Math.round(val),
-          },
-        })),
-    });
-    // Volume to 70
-    startTweenKeyDelayed("volume", {
-      from: v.media.volume,
-      to: 70,
-      ms: 500,
-      step: (val) =>
-        setVehicle((s) => ({
-          ...s,
-          media: {
-            ...normalizeVehicle(s).media,
-            on: true,
-            volume: Math.round(val),
-          },
-        })),
-    });
-    // Lights to 100
-    startTweenKeyDelayed("lights", {
-      from: v.lights.brightness,
-      to: 100,
-      ms: 500,
-      step: (val) =>
-        setVehicle((s) => ({
-          ...s,
-          lights: {
-            ...normalizeVehicle(s).lights,
-            on: true,
-            brightness: Math.round(val),
-          },
-        })),
-    });
-    // Seats heat on, pos 2
-    setVehicle((s) => ({
-      ...s,
-      seats: { ...normalizeVehicle(s).seats, heatOn: true, position: 2 },
-    }));
+    console.log('Action would be sent to MQTT:', actionData);
   };
 
   /* ---------- Actions (AI closes, then animate with 1s delay) ---------- */
@@ -584,62 +583,29 @@ export default function App() {
     const clamp = (n, lo, hi) => Math.min(hi, Math.max(lo, n));
     const toInt = (n) => (Number.isFinite(+n) ? Math.round(+n) : 0);
 
+    // Send action to MQTT
+    sendActionToMQTT(action, rawValue);
+
     switch (action) {
       case "climate_turn_on":
-        openSheet("climate", "Climate Control");
+        autoOpenSheet("climate", "Climate Control");
         setVehicle((s) => ({
           ...s,
           climate: { ...normalizeVehicle(s).climate, on: true },
         }));
         break;
+
       case "climate_turn_off":
-        openSheet("climate", "Climate Control");
+        autoOpenSheet("climate", "Climate Control");
         setVehicle((s) => ({
           ...s,
           climate: { ...normalizeVehicle(s).climate, on: false },
         }));
         break;
+
       case "climate_set_temperature": {
         const to = clamp(toInt(rawValue), 16, 30);
-        openSheet("climate", "Climate Control");
-        startTweenKeyDelayed("temp", {
-          from: v.climate.temp,
-          to,
-          ms: 500,
-          step: (val) =>
-            setVehicle((s) => ({
-              ...s,
-              climate: {
-                ...normalizeVehicle(s).climate,
-                on: true,
-                temp: Math.round(val),
-              },
-            })),
-        });
-        break;
-      }
-      case "climate_increase": {
-        const to = clamp(v.climate.temp + 1, 16, 30);
-        openSheet("climate", "Climate Control");
-        startTweenKeyDelayed("temp", {
-          from: v.climate.temp,
-          to,
-          ms: 500,
-          step: (val) =>
-            setVehicle((s) => ({
-              ...s,
-              climate: {
-                ...normalizeVehicle(s).climate,
-                on: true,
-                temp: Math.round(val),
-              },
-            })),
-        });
-        break;
-      }
-      case "climate_decrease": {
-        const to = clamp(v.climate.temp - 1, 16, 30);
-        openSheet("climate", "Climate Control");
+        autoOpenSheet("climate", "Climate Control");
         startTweenKeyDelayed("temp", {
           from: v.climate.temp,
           to,
@@ -657,9 +623,65 @@ export default function App() {
         break;
       }
 
+      case "climate_increase": {
+        const to = clamp(v.climate.temp + 1, 16, 30);
+        autoOpenSheet("climate", "Climate Control");
+        startTweenKeyDelayed("temp", {
+          from: v.climate.temp,
+          to,
+          ms: 500,
+          step: (val) =>
+            setVehicle((s) => ({
+              ...s,
+              climate: {
+                ...normalizeVehicle(s).climate,
+                on: true,
+                temp: Math.round(val),
+              },
+            })),
+        });
+        break;
+      }
+
+      case "climate_decrease": {
+        const to = clamp(v.climate.temp - 1, 16, 30);
+        autoOpenSheet("climate", "Climate Control");
+        startTweenKeyDelayed("temp", {
+          from: v.climate.temp,
+          to,
+          ms: 500,
+          step: (val) =>
+            setVehicle((s) => ({
+              ...s,
+              climate: {
+                ...normalizeVehicle(s).climate,
+                on: true,
+                temp: Math.round(val),
+              },
+            })),
+        });
+        break;
+      }
+
+      case "infotainment_play":
+        autoOpenSheet("music", "Entertainment System");
+        setVehicle((s) => ({
+          ...s,
+          media: { ...normalizeVehicle(s).media, on: true },
+        }));
+        break;
+
+      case "infotainment_stop":
+        autoOpenSheet("music", "Entertainment System");
+        setVehicle((s) => ({
+          ...s,
+          media: { ...normalizeVehicle(s).media, on: false },
+        }));
+        break;
+
       case "infotainment_set_volume": {
         const to = clamp(toInt(rawValue), 0, 100);
-        openSheet("music", "Entertainment System");
+        autoOpenSheet("music", "Entertainment System");
         startTweenKeyDelayed("volume", {
           from: v.media.volume,
           to,
@@ -676,9 +698,10 @@ export default function App() {
         });
         break;
       }
+
       case "infotainment_volume_up": {
         const to = Math.min(100, v.media.volume + 5);
-        openSheet("music", "Entertainment System");
+        autoOpenSheet("music", "Entertainment System");
         startTweenKeyDelayed("volume", {
           from: v.media.volume,
           to,
@@ -695,9 +718,10 @@ export default function App() {
         });
         break;
       }
+
       case "infotainment_volume_down": {
         const to = Math.max(0, v.media.volume - 5);
-        openSheet("music", "Entertainment System");
+        autoOpenSheet("music", "Entertainment System");
         startTweenKeyDelayed("volume", {
           from: v.media.volume,
           to,
@@ -717,7 +741,7 @@ export default function App() {
 
       case "lights_turn_on": {
         const to = Math.max(20, v.lights.brightness || 20);
-        openSheet("lighting", "Interior Lighting");
+        autoOpenSheet("lighting", "Interior Lighting");
         startTweenKeyDelayed("lights", {
           from: v.lights.brightness,
           to,
@@ -734,8 +758,9 @@ export default function App() {
         });
         break;
       }
+
       case "lights_turn_off": {
-        openSheet("lighting", "Interior Lighting");
+        autoOpenSheet("lighting", "Interior Lighting");
         startTweenKeyDelayed("lights", {
           from: v.lights.brightness,
           to: 0,
@@ -752,9 +777,10 @@ export default function App() {
         });
         break;
       }
+
       case "lights_dim": {
         const to = Math.max(0, v.lights.brightness - 10);
-        openSheet("lighting", "Interior Lighting");
+        autoOpenSheet("lighting", "Interior Lighting");
         startTweenKeyDelayed("lights", {
           from: v.lights.brightness,
           to,
@@ -771,9 +797,10 @@ export default function App() {
         });
         break;
       }
+
       case "lights_brighten": {
         const to = Math.min(100, v.lights.brightness + 10);
-        openSheet("lighting", "Interior Lighting");
+        autoOpenSheet("lighting", "Interior Lighting");
         startTweenKeyDelayed("lights", {
           from: v.lights.brightness,
           to,
@@ -792,22 +819,24 @@ export default function App() {
       }
 
       case "seats_heat_on":
-        openSheet("seats", "Seat Controls");
+        autoOpenSheet("seats", "Seat Controls");
         setVehicle((s) => ({
           ...s,
           seats: { ...normalizeVehicle(s).seats, heatOn: true },
         }));
         break;
+
       case "seats_heat_off":
-        openSheet("seats", "Seat Controls");
+        autoOpenSheet("seats", "Seat Controls");
         setVehicle((s) => ({
           ...s,
           seats: { ...normalizeVehicle(s).seats, heatOn: false },
         }));
         break;
+
       case "seats_adjust": {
         const to = Math.min(5, Math.max(1, Math.round(+rawValue || 0)));
-        openSheet("seats", "Seat Controls");
+        autoOpenSheet("seats", "Seat Controls");
         startTweenKeyDelayed("seatpos", {
           from: v.seats.position,
           to,
@@ -823,6 +852,7 @@ export default function App() {
         });
         break;
       }
+
       default:
         break;
     }
@@ -833,12 +863,14 @@ export default function App() {
     setTimeout(() => coreDispatch(action, value), 300);
   };
 
+  // Handle AI recommendation acceptance
+  const handleAIRecommendationAccept = (recommendation) => {
+    coreDispatch(recommendation.action, recommendation.value);
+  };
+
   /* ---------- Render ---------- */
   return (
-    <div
-      className="min-h-screen relative"
-      style={{ backgroundColor: COLORS.lightBg }}
-    >
+    <div className="min-h-screen relative" style={{ backgroundColor: COLORS.lightBg }}>
       <div className="max-w-6xl mx-auto p-6 pb-32">
         {/* Header */}
         <div className="text-center mb-12">
@@ -867,6 +899,7 @@ export default function App() {
             unit="°C"
             onClick={() => openSheet("climate", "Climate Control")}
           />
+
           <ModernCard
             title="Entertainment"
             icon={Volume2}
@@ -877,6 +910,7 @@ export default function App() {
             unit="%"
             onClick={() => openSheet("music", "Entertainment System")}
           />
+
           <ModernCard
             title="Lighting"
             icon={Lightbulb}
@@ -887,6 +921,7 @@ export default function App() {
             unit="%"
             onClick={() => openSheet("lighting", "Interior Lighting")}
           />
+
           <ModernCard
             title="Seats"
             icon={Flame}
@@ -906,7 +941,7 @@ export default function App() {
           initial={false}
           onClick={() => setAiOpen(true)}
           className="relative w-20 h-20 rounded-full shadow-2xl text-white flex items-center justify-center overflow-hidden"
-          style={{ backgroundColor: COLORS.accent }}
+          style={{ backgroundColor: COLORS.secondary }}
           whileHover={{ scale: 1.05 }}
           whileTap={{ scale: 0.95 }}
           aria-label="Assistant"
@@ -930,9 +965,7 @@ export default function App() {
                 }
                 className="px-6 py-3 rounded-xl font-medium text-white transition-all duration-200 hover:scale-105"
                 style={{
-                  backgroundColor: v.climate.on
-                    ? COLORS.gray
-                    : COLORS.cardAccents.climate,
+                  backgroundColor: v.climate.on ? COLORS.gray : COLORS.cardAccents.climate,
                 }}
               >
                 {v.climate.on ? "Turn Off" : "Turn On"}
@@ -972,9 +1005,7 @@ export default function App() {
                 }
                 className="px-6 py-3 rounded-xl font-medium text-white transition-all duration-200 hover:scale-105"
                 style={{
-                  backgroundColor: v.media.on
-                    ? COLORS.gray
-                    : COLORS.cardAccents.music,
+                  backgroundColor: v.media.on ? COLORS.gray : COLORS.cardAccents.music,
                 }}
               >
                 {v.media.on ? "Turn Off" : "Turn On"}
@@ -1022,9 +1053,7 @@ export default function App() {
                 }
                 className="px-6 py-3 rounded-xl font-medium text-white transition-all duration-200 hover:scale-105"
                 style={{
-                  backgroundColor: v.lights.on
-                    ? COLORS.gray
-                    : COLORS.cardAccents.lighting,
+                  backgroundColor: v.lights.on ? COLORS.gray : COLORS.cardAccents.lighting,
                 }}
               >
                 {v.lights.on ? "Turn Off" : "Turn On"}
@@ -1067,9 +1096,7 @@ export default function App() {
                 }
                 className="px-6 py-3 rounded-xl font-medium text-white transition-all duration-200 hover:scale-105"
                 style={{
-                  backgroundColor: v.seats.heatOn
-                    ? COLORS.gray
-                    : COLORS.cardAccents.seats,
+                  backgroundColor: v.seats.heatOn ? COLORS.gray : COLORS.cardAccents.seats,
                 }}
               >
                 {v.seats.heatOn ? "Heat Off" : "Heat On"}
@@ -1096,14 +1123,12 @@ export default function App() {
       </Sheet>
 
       {/* Voice Modal */}
-      {/* Voice Modal */}
       <VoiceModal
         open={aiOpen}
         onClose={() => setAiOpen(false)}
         dispatchAction={(action, value) => {
           // Close modal immediately
           setAiOpen(false);
-          
           // Send to backend instead of local dispatch
           setTimeout(async () => {
             try {
@@ -1133,18 +1158,17 @@ export default function App() {
               } else if (action === "seats_heat_off") {
                 commandText = "turn off seat heating";
               } else {
-                commandText = action.replace(/_/g, ' ') + (value ? ` ${value}` : '');
+                commandText = action.replace(/_/g, ' ') + (value && typeof value !== 'object' ? ` ${value}` : '');
               }
-              
+
               await fetch('http://localhost:8000/api/nlp/process-voice', {
                 method: 'POST',
                 headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify({ 
+                body: JSON.stringify({
                   text: commandText,
                   timestamp: Date.now()
                 })
               });
-              
               console.log('Voice command sent to backend:', commandText);
             } catch (error) {
               console.error('Backend command failed:', error);
@@ -1155,11 +1179,12 @@ export default function App() {
         }}
       />
 
-      {/* Pretty preset prompt */}
-      <PresetPrompt
-        open={presetPrompt.open}
-        onClose={() => setPresetPrompt((p) => ({ ...p, open: false }))}
-        onAccept={applyPresetAnimated}
+      {/* AI Recommendation Prompt */}
+      <AIRecommendationPrompt
+        open={aiRecommendation.open}
+        onClose={() => setAiRecommendation({ open: false, recommendations: [] })}
+        onAccept={handleAIRecommendationAccept}
+        recommendations={aiRecommendation.recommendations}
       />
     </div>
   );
